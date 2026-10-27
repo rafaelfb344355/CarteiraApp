@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; connect-src https://brapi.dev; form-action 'none'">
+<title>Cofre · Meus investimentos</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4A010A">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cofre">
+<style>
+:root{--bg:#0f0a0b;--wine:#4A010A;--wine2:#6e1420;--cream:#F2E3C6;--green:#203C35;--up:#86d6ad;--down:#ff8f86;--mut:#b7a889;--line:#ffffff1c;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--cream);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+h1,h2,.big{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:-.01em}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1060px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 0 20px}
+h1{margin:0;font-size:1.6rem}
+.btn{background:var(--cream);color:var(--wine);border:0;border-radius:12px;padding:9px 16px;font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--cream);border:1px solid var(--line)}
+.btn.sm{padding:5px 10px;font-size:.85rem;border-radius:9px}
+.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cream);outline-offset:2px}
+.hero{background:var(--wine);border-radius:28px 28px 28px 6px;padding:26px;margin-bottom:14px}
+.hero .big{font-size:clamp(2.1rem,7vw,3.4rem);margin:2px 0}
+.hero small,.mut{color:var(--mut)}
+.hero .row{display:flex;gap:26px;flex-wrap:wrap;margin-top:10px}
+.up{color:var(--up)}.down{color:var(--down)}
+.grid{display:grid;gap:14px;grid-template-columns:1.6fr 1fr}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--green);border-radius:24px 24px 6px 24px;padding:20px;overflow:hidden}
+.card.cream{background:var(--cream);color:var(--green);border-radius:6px 24px 24px 24px}
+.card h2{margin:0 0 10px;font-size:1.15rem}
+.tw{overflow-x:auto;margin-top:14px}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mut);font-weight:600;font-size:.85rem}
+td.r,th.r{text-align:right}
+.tag{font-size:.75rem;border:1px solid var(--line);border-radius:99px;padding:1px 8px;color:var(--mut)}
+.bar{height:10px;border-radius:9px;background:#0002;overflow:hidden;margin:4px 0 12px}
+.bar i{display:block;height:100%;background:var(--wine)}
+svg{display:block;width:100%;height:auto}
+dialog{background:var(--bg);color:var(--cream);border:1px solid var(--line);border-radius:22px;padding:22px;width:min(420px,92vw)}
+dialog::backdrop{background:#000a}
+label{display:block;margin:10px 0 2px;color:var(--mut);font-size:.88rem}
+input,select{width:100%;background:#ffffff0d;border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+.acts{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.lock{max-width:380px;margin:12vh auto;background:var(--wine);padding:28px;border-radius:28px 28px 28px 6px}
+.lock h1{margin-bottom:6px}.err{color:var(--down);min-height:1.4em}
+.empty{padding:26px 8px;text-align:center;color:var(--mut)}
+.alert{background:#ff8f8626;border:1px solid var(--down);border-radius:16px;padding:10px 14px;margin-bottom:8px}
+.alert.good{background:#86d6ad22;border-color:var(--up)}
+.chk{display:flex;gap:8px;align-items:center;margin-top:12px}.chk input{width:auto}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="lock" id="lock" hidden>
+  <h1 id="lt"></h1>
+  <p class="mut" id="ls"></p>
+  <label for="pw">Senha</label>
+  <input id="pw" type="password" autocomplete="off">
+  <div id="pw2w" hidden><label for="pw2">Repita a senha</label><input id="pw2" type="password" autocomplete="off"></div>
+  <p class="err" id="err" role="alert"></p>
+  <button class="btn" id="go" style="width:100%"></button>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header>
+    <h1>Cofre</h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" data-act="add">Adicionar investimento</button>
+      <button class="btn ghost" data-act="quotes">Atualizar cotações</button>
+      <button class="btn ghost" data-act="cfg">Configurar</button>
+      <button class="btn ghost" data-act="export">Exportar</button>
+      <button class="btn ghost" data-act="import">Importar</button>
+      <button class="btn ghost" data-act="lock">Trancar</button>
+    </div>
+  </header>
+  <input type="file" id="file" accept=".json" hidden>
+  <div id="alerts" aria-live="polite"></div>
+  <p class="mut" id="st" style="margin:0 0 10px"></p>
+  <section class="hero" id="hero"></section>
+  <div class="grid">
+    <div class="card"><h2>Evolução do patrimônio</h2><div id="evo"></div></div>
+    <div class="card cream"><h2>Distribuição</h2><div id="alloc"></div></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h2>Meus investimentos</h2><div class="tw" id="list"></div></div>
+  <p class="mut" style="font-size:.85rem;margin-top:18px">Seus dados ficam criptografados (AES-256) só neste navegador. Nada é enviado a servidores. Faça backup com Exportar.</p>
+</div>
+
+<dialog id="dA"><form id="fA">
+  <h2 style="margin:0">Novo investimento</h2>
+  <label for="aT">Tipo</label>
+  <select id="aT"><option value="fii">Fundo imobiliário (FII)</option><option value="acao">Ação / ETF</option><option value="poup">Poupança / renda fixa</option></select>
+  <label for="aN">Nome ou código</label><input id="aN" required maxlength="40" placeholder="Ex.: MXRF11">
+  <div class="qp"><label for="aQ">Quantidade de cotas</label><input id="aQ" type="number" step="any" min="0"></div>
+  <div class="qp"><label for="aC">Preço médio pago (R$)</label><input id="aC" type="number" step="any" min="0"></div>
+  <div class="qp"><label for="aP">Cotação atual (R$)</label><input id="aP" type="number" step="any" min="0"></div>
+  <div class="pp" hidden><label for="aV">Valor aplicado (R$)</label><input id="aV" type="number" step="any" min="0"></div>
+  <div class="pp" hidden><label for="aR">Rendimento mensal (%)</label><input id="aR" type="number" step="any" placeholder="Ex.: 0.6"></div>
+  <div class="pp" hidden><label for="aS">Data da aplicação</label><input id="aS" type="date"></div>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
+</form></dialog>
+
+<dialog id="dP"><form id="fP">
+  <h2 style="margin:0" id="pT">Atualizar cotação</h2>
+  <label for="pV" id="pL">Valor (R$)</label><input id="pV" type="number" step="any" min="0" required>
+  <label for="pD">Data</label><input id="pD" type="date" required>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
+</form></dialog>
+
+<dialog id="dS"><form id="fS">
+  <h2 style="margin:0">Configurar</h2>
+  <p class="mut" style="font-size:.9rem">Cotações pela brapi.dev. Sem token só funcionam PETR4, VALE3, MGLU3 e ITUB4. Para os demais (FIIs incluídos) crie um token gratuito em brapi.dev/dashboard. Ele fica guardado criptografado no cofre.</p>
+  <label for="sT">Token da brapi</label><input id="sT" type="password" autocomplete="off">
+  <label class="chk"><input type="checkbox" id="sA">Atualizar cotações sozinho a cada 5 minutos</label>
+  <label for="sM">Trancar após inatividade</label>
+  <select id="sM"><option value="5">5 minutos</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60">1 hora</option></select>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
+</form></dialog>
+
+<dialog id="dL"><form id="fL">
+  <h2 style="margin:0" id="lT">Alertas</h2>
+  <label for="lLo">Avisar se a cotação cair até (R$)</label><input id="lLo" type="number" step="any" min="0">
+  <label for="lHi">Avisar se a cotação subir até (R$)</label><input id="lHi" type="number" step="any" min="0">
+  <label for="lDr">Avisar se a variação cair mais de (%)</label><input id="lDr" type="number" step="any" min="0">
+  <p class="mut" style="font-size:.85rem">Deixe em branco para desativar. Os avisos aparecem no topo da página e, se você permitir, como notificação do navegador. Funcionam só com o app aberto e destrancado.</p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
+</form></dialog>
+
+<script>
+"use strict";
+const LS="cofre_v1",$=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const brl=n=>n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const pct=n=>(n>=0?"+":"")+n.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%";
+const today=()=>new Date().toISOString().slice(0,10);
+const cls=n=>n>=0?"up":"down";
+const TN={fii:"FII",acao:"Ação",poup:"Poupança"};
+let S={assets:[],snaps:[]},K=null,salt=null,timer=null,ctx=null,poll=null,seen=new Set();
+
+/* ---------- criptografia ---------- */
+const b64=b=>{let s="";new Uint8Array(b).forEach(x=>s+=String.fromCharCode(x));return btoa(s)};
+const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+async function derive(pw,sl){
+  const m=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt:sl,iterations:300000,hash:"SHA-256"},m,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+async function persist(){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const d=await crypto.subtle.encrypt({name:"AES-GCM",iv},K,new TextEncoder().encode(JSON.stringify(S)));
+  localStorage.setItem(LS,JSON.stringify({s:b64(salt),i:b64(iv),d:b64(d)}));
+}
+
+/* ---------- cálculos ---------- */
+const months=s=>{const a=new Date(s),b=new Date();let m=(b.getFullYear()-a.getFullYear())*12+b.getMonth()-a.getMonth();if(b.getDate()<a.getDate())m--;return Math.max(0,m)};
+const val=a=>a.type==="poup"?a.cost*Math.pow(1+a.rate/100,months(a.start)):a.qty*a.price;
+const inv=a=>a.type==="poup"?a.cost:a.qty*a.cost;
+const divs=a=>(a.divs||[]).reduce((t,d)=>t+d.v,0);
+function series(a){
+  if(a.type==="poup"){const n=months(a.start),o=[];for(let i=0;i<=n;i++)o.push(a.cost*Math.pow(1+a.rate/100,i));return o.length>1?o:[a.cost,a.cost]}
+  const h=[...(a.hist||[])].sort((x,y)=>x.d.localeCompare(y.d)).map(x=>x.p);return h.length>1?h:[a.price,a.price];
+}
+function totals(){
+  let v=0,i=0,d=0;S.assets.forEach(a=>{v+=val(a);i+=inv(a);d+=divs(a)});
+  return {v,i,d,gain:v-i,pct:i?(v-i)/i*100:0,tot:v+d-i,totp:i?(v+d-i)/i*100:0};
+}
+function snap(){
+  const t=totals(),d=today(),x=S.snaps.find(s=>s.d===d);
+  if(x){x.v=t.v;x.i=t.i}else S.snaps.push({d,v:t.v,i:t.i});
+  S.snaps=S.snaps.slice(-730);
+}
+
+/* ---------- gráficos SVG ---------- */
+function path(a,w,h,mn,mx,p=6){
+  const r=mx-mn||1;
+  return a.map((y,i)=>`${i?"L":"M"}${(p+i*(w-2*p)/Math.max(1,a.length-1)).toFixed(1)} ${(h-p-(y-mn)/r*(h-2*p)).toFixed(1)}`).join("");
+}
+function evoChart(){
+  const s=S.snaps.length>1?S.snaps:null;
+  if(!s)return '<div class="empty">O gráfico aparece depois de dois dias de uso. Atualize as cotações com frequência.</div>';
+  const all=s.flatMap(x=>[x.v,x.i]),mn=Math.min(...all),mx=Math.max(...all);
+  return `<svg viewBox="0 0 600 220" role="img" aria-label="Evolução do patrimônio">
+  <path d="${path(s.map(x=>x.i),600,220,mn,mx)}" fill="none" stroke="#b7a889" stroke-width="2" stroke-dasharray="5 5"/>
+  <path d="${path(s.map(x=>x.v),600,220,mn,mx)}" fill="none" stroke="#F2E3C6" stroke-width="3" stroke-linejoin="round"/></svg>
+  <p class="mut" style="margin:6px 0 0;font-size:.85rem">Linha cheia: valor atual · tracejada: total investido · desde ${esc(s[0].d.split("-").reverse().join("/"))}</p>`;
+}
+function spark(a){
+  const s=series(a),mn=Math.min(...s),mx=Math.max(...s),up=s[s.length-1]>=s[0];
+  return `<svg viewBox="0 0 90 28" style="width:90px"><path d="${path(s,90,28,mn,mx,3)}" fill="none" stroke="${up?"#86d6ad":"#ff8f86"}" stroke-width="2"/></svg>`;
+}
+
+/* ---------- render ---------- */
+function render(){
+  checkAlerts();
+  const t=totals();
+  $("#hero").innerHTML=`<small>Patrimônio atual</small><div class="big">${brl(t.v)}</div>
+  <div class="row">
+   <div><small>Investido</small><br><b>${brl(t.i)}</b></div>
+   <div><small>Valorização</small><br><b class="${cls(t.gain)}">${brl(t.gain)} (${pct(t.pct)})</b></div>
+   <div><small>Rendimentos recebidos</small><br><b>${brl(t.d)}</b></div>
+   <div><small>Resultado total</small><br><b class="${cls(t.tot)}">${brl(t.tot)} (${pct(t.totp)})</b></div></div>`;
+  $("#evo").innerHTML=evoChart();
+  const al=["fii","acao","poup"].map(k=>({k,v:S.assets.filter(a=>a.type===k).reduce((s,a)=>s+val(a),0)})).filter(x=>x.v>0);
+  $("#alloc").innerHTML=al.length?al.map(x=>{const p=x.v/t.v*100;return `<div style="display:flex;justify-content:space-between"><b>${TN[x.k]}</b><span>${p.toFixed(1)}% · ${brl(x.v)}</span></div><div class="bar"><i style="width:${p}%"></i></div>`}).join(""):'<div class="empty">Sem dados ainda.</div>';
+  $("#list").innerHTML=S.assets.length?`<table><thead><tr><th>Ativo</th><th class="r">Valor atual</th><th class="r">Resultado</th><th class="r">Última variação</th><th>Histórico</th><th class="r">Ações</th></tr></thead><tbody>`+
+  S.assets.map(a=>{
+    const v=val(a),g=v-inv(a),gp=inv(a)?g/inv(a)*100:0,s=series(a),l=s[s.length-1],pr=s[s.length-2],ch=a.chg!=null?a.chg:(pr?(l-pr)/pr*100:0);
+    return `<tr><td><b>${esc(a.name)}</b> <span class="tag">${TN[a.type]}</span><br><small class="mut">${a.type==="poup"?esc(a.rate)+"% ao mês":esc(a.qty)+" cotas · pm "+brl(a.cost)}</small></td>
+    <td class="r">${brl(v)}${a.type==="poup"?"":"<br><small class='mut'>"+brl(a.price)+"</small>"}</td>
+    <td class="r ${cls(g)}">${brl(g)}<br><small>${pct(gp)}</small></td>
+    <td class="r ${cls(ch)}">${pct(ch)}</td><td>${spark(a)}</td>
+    <td class="r">${a.type==="poup"?"":`<button class="btn sm" data-act="price" data-id="${esc(a.id)}">Cotação</button> `}${a.type==="fii"?`<button class="btn sm" data-act="div" data-id="${esc(a.id)}">Rendimento</button> `:""}${a.type==="poup"?"":`<button class="btn ghost sm" data-act="alert" data-id="${esc(a.id)}">${a.al&&(a.al.lo||a.al.hi||a.al.drop)?"Alerta ativo":"Alerta"}</button> `}<button class="btn ghost sm" data-act="del" data-id="${esc(a.id)}">Excluir</button></td></tr>`}).join("")+"</tbody></table>":
+  '<div class="empty">Nenhum investimento ainda. Toque em “Adicionar investimento”.</div>';
+}
+async function save(){snap();await persist();render()}
+
+/* ---------- ações ---------- */
+function toggleT(){const p=$("#aT").value==="poup";document.querySelectorAll(".qp").forEach(e=>e.hidden=p);document.querySelectorAll(".pp").forEach(e=>e.hidden=!p)}
+$("#aT").onchange=toggleT;
+document.addEventListener("click",async e=>{
+  if(e.target.closest("[data-close]")){e.target.closest("dialog").close();return}
+  const b=e.target.closest("[data-act]");if(!b)return;reset();
+  const a=S.assets.find(x=>x.id===b.dataset.id),act=b.dataset.act;
+  if(act==="add"){$("#fA").reset();$("#aS").value=today();toggleT();$("#dA").showModal()}
+  if(act==="price"){ctx={a,k:"price"};$("#pT").textContent="Atualizar "+a.name;$("#pL").textContent="Nova cotação (R$)";$("#pV").value=a.price;$("#pD").value=today();$("#dP").showModal()}
+  if(act==="div"){ctx={a,k:"div"};$("#pT").textContent="Rendimento de "+a.name;$("#pL").textContent="Valor por cota (R$)";$("#pV").value="";$("#pD").value=today();$("#dP").showModal()}
+  if(act==="del"&&confirm("Excluir "+a.name+"? Isso não pode ser desfeito.")){S.assets=S.assets.filter(x=>x!==a);await save()}
+  if(act==="lock")lockApp();
+  if(act==="quotes")quotes(true);
+  if(act==="cfg"){$("#sT").value=S.token||"";$("#sA").checked=!!S.auto;$("#sM").value=S.lockMin||5;$("#dS").showModal()}
+  if(act==="alert"){ctx={a};const al=a.al||{};$("#lT").textContent="Alertas de "+a.name;$("#lLo").value=al.lo||"";$("#lHi").value=al.hi||"";$("#lDr").value=al.drop||"";$("#dL").showModal()}
+  if(act==="export"){
+    if(!confirm("O arquivo exportado NÃO é criptografado. Guarde em local seguro. Continuar?"))return;
+    const u=URL.createObjectURL(new Blob([JSON.stringify({assets:S.assets,snaps:S.snaps},null,1)],{type:"application/json"}));
+    const l=document.createElement("a");l.href=u;l.download="cofre-backup-"+today()+".json";l.click();URL.revokeObjectURL(u)}
+  if(act==="import")$("#file").click();
+});
+$("#fA").onsubmit=async e=>{
+  e.preventDefault();const t=$("#aT").value,n=v=>parseFloat($(v).value)||0;
+  const a={id:crypto.randomUUID(),type:t,name:$("#aN").value.trim().toUpperCase(),hist:[],divs:[]};
+  if(t==="poup"){a.cost=n("#aV");a.qty=1;a.rate=n("#aR");a.start=$("#aS").value||today();if(a.cost<=0)return}
+  else{a.qty=n("#aQ");a.cost=n("#aC");a.price=n("#aP")||a.cost;if(a.qty<=0||a.cost<=0)return;a.hist=[{d:today(),p:a.price}]}
+  S.assets.push(a);$("#dA").close();await save();
+};
+$("#fP").onsubmit=async e=>{
+  e.preventDefault();const v=parseFloat($("#pV").value),d=$("#pD").value;if(!(v>=0)||!d)return;
+  const {a,k}=ctx;
+  if(k==="price"){a.price=v;a.chg=null;a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:v})}
+  else(a.divs=a.divs||[]).push({d,v:v*a.qty});
+  $("#dP").close();await save();
+};
+$("#fS").onsubmit=async e=>{e.preventDefault();S.token=$("#sT").value.trim();S.auto=$("#sA").checked;S.lockMin=+$("#sM").value||5;$("#dS").close();await persist();schedule();reset();quotes(true)};
+$("#fL").onsubmit=async e=>{
+  e.preventDefault();const n=v=>Math.max(0,parseFloat($(v).value)||0);
+  ctx.a.al={lo:n("#lLo"),hi:n("#lHi"),drop:n("#lDr")};
+  if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
+  $("#dL").close();seen.clear();await save();
+};
+function checkAlerts(){
+  const o=[];
+  S.assets.forEach(a=>{
+    const al=a.al;if(!al||a.type==="poup")return;
+    const s=series(a),pr=s[s.length-2],ch=a.chg!=null?a.chg:(pr?(a.price-pr)/pr*100:0);
+    if(al.lo>0&&a.price<=al.lo)o.push({k:a.id+"lo",d:1,t:`${a.name} está em ${brl(a.price)}, no alvo de queda de ${brl(al.lo)}.`});
+    if(al.hi>0&&a.price>=al.hi)o.push({k:a.id+"hi",d:0,t:`${a.name} está em ${brl(a.price)}, no alvo de alta de ${brl(al.hi)}.`});
+    if(al.drop>0&&ch<=-al.drop)o.push({k:a.id+"dr",d:1,t:`${a.name} caiu ${Math.abs(ch).toLocaleString("pt-BR",{maximumFractionDigits:2})}% (alerta: ${al.drop}%).`});
+  });
+  $("#alerts").innerHTML=o.map(x=>`<div class="alert ${x.d?"":"good"}" role="alert">${esc(x.t)}</div>`).join("");
+  [...seen].forEach(k=>{if(!o.some(x=>x.k===k))seen.delete(k)});
+  o.forEach(x=>{if(seen.has(x.k))return;seen.add(x.k);
+    try{if("Notification" in window&&Notification.permission==="granted")new Notification("Cofre",{body:x.t})}catch{}});
+}
+function schedule(){clearInterval(poll);poll=null;if(K&&S.auto)poll=setInterval(()=>quotes(false),5*60*1000)}
+async function quotes(manual){
+  const list=S.assets.filter(a=>a.type!=="poup"&&/^[A-Z0-9]{4,8}$/.test(a.name));
+  if(!list.length){if(manual)$("#st").textContent="Cadastre um ativo com código da B3 (ex.: MXRF11) para buscar cotações.";return}
+  $("#st").textContent="Buscando cotações…";let ok=0,msg="";
+  for(const a of list){
+    if(!K)return;
+    try{
+      const r=await fetch("https://brapi.dev/api/quote/"+encodeURIComponent(a.name),{headers:S.token?{Authorization:"Bearer "+S.token}:{}});
+      if(r.status===429){msg="Limite de requisições atingido, tente mais tarde. ";break}
+      if(r.status===401||r.status===403){msg+=`${a.name}: precisa de token válido (Configurar). `;continue}
+      const q=r.ok?(await r.json()).results?.[0]:null;
+      if(!q||typeof q.regularMarketPrice!=="number"){msg+=`${a.name}: não encontrado. `;continue}
+      const d=today();a.price=q.regularMarketPrice;
+      a.chg=typeof q.regularMarketChangePercent==="number"?q.regularMarketChangePercent:null;
+      a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:a.price});ok++;
+    }catch{msg="Sem conexão com a brapi.dev. ";break}
+    await new Promise(r=>setTimeout(r,400));
+  }
+  if(!K)return;
+  await save();
+  $("#st").textContent=`${ok} de ${list.length} cotações atualizadas às ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}. ${msg}`;
+}
+$("#file").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const j=JSON.parse(await f.text());if(!Array.isArray(j.assets))throw 0;
+    if(!confirm("Isso substitui todos os dados atuais. Continuar?"))return;
+    S={token:S.token,auto:S.auto,lockMin:S.lockMin,assets:j.assets.map(a=>({...a,id:String(a.id||crypto.randomUUID()),name:String(a.name||"?")})),snaps:Array.isArray(j.snaps)?j.snaps:[]};await save()}
+  catch{alert("Arquivo inválido.")}
+  e.target.value="";
+};
+
+/* ---------- senha e bloqueio ---------- */
+function reset(){clearTimeout(timer);if(K)timer=setTimeout(lockApp,(S.lockMin||5)*60*1000)}
+["click","keydown","touchstart"].forEach(ev=>document.addEventListener(ev,reset,{passive:true}));
+function lockApp(){clearInterval(poll);K=null;S={assets:[],snaps:[]};$("#app").hidden=true;showLock()}
+function showLock(){
+  const has=!!localStorage.getItem(LS);
+  $("#lock").hidden=false;$("#pw").value="";$("#pw2").value="";$("#err").textContent="";
+  $("#lt").textContent=has?"Cofre trancado":"Crie sua senha";
+  $("#ls").textContent=has?"Digite a senha para ver seus investimentos.":"Ela protege seus dados. Não há como recuperá-la se for esquecida.";
+  $("#pw2w").hidden=has;$("#go").textContent=has?"Destrancar":"Criar cofre";$("#pw").focus();
+}
+async function unlock(){
+  const pw=$("#pw").value,has=localStorage.getItem(LS);$("#err").textContent="";
+  try{
+    if(has){
+      const o=JSON.parse(has);salt=unb64(o.s);const k=await derive(pw,salt);
+      const p=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(o.i)},k,unb64(o.d));
+      S=JSON.parse(new TextDecoder().decode(p));K=k;
+    }else{
+      if(pw.length<8){$("#err").textContent="Use pelo menos 8 caracteres.";return}
+      if(pw!==$("#pw2").value){$("#err").textContent="As senhas não coincidem.";return}
+      salt=crypto.getRandomValues(new Uint8Array(16));K=await derive(pw,salt);S={assets:[],snaps:[]};await persist();
+    }
+    $("#pw").value="";$("#pw2").value="";$("#lock").hidden=true;$("#app").hidden=false;render();reset();schedule();if(S.auto)quotes(false);
+  }catch{$("#err").textContent="Senha incorreta.";K=null}
+}
+$("#go").onclick=unlock;
+["#pw","#pw2"].forEach(s=>$(s).addEventListener("keydown",e=>{if(e.key==="Enter")unlock()}));
+if(!window.crypto||!crypto.subtle){document.body.innerHTML="<p style='padding:30px'>Este navegador não suporta criptografia. Use HTTPS (GitHub Pages) e um navegador atual.</p>"}
+else showLock();
+if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
