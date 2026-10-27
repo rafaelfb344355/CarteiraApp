@@ -19,7 +19,10 @@ body{margin:0;background:var(--bg);color:var(--cream);font:16px/1.5 system-ui,-a
 h1,h2,.big{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:-.01em}
 button,input,select{font:inherit;color:inherit}
 .wrap{max-width:1060px;margin:0 auto;padding:20px 16px 60px}
-header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 0 20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 0 20px;position:relative}
+.head-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.menu-toggle{display:none}
+
 h1{margin:0;font-size:1.6rem}
 .btn{background:var(--cream);color:var(--wine);border:0;border-radius:12px;padding:9px 16px;font-weight:700;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--cream);border:1px solid var(--line)}
@@ -56,6 +59,43 @@ input,select{width:100%;background:#ffffff0d;border:1px solid var(--line);border
 .alert.good{background:#86d6ad22;border-color:var(--up)}
 .chk{display:flex;gap:8px;align-items:center;margin-top:12px}.chk input{width:auto}
 [hidden]{display:none!important}
+@media(max-width:640px){
+ .wrap{padding:12px 12px 36px}
+ header{padding:5px 0 14px;gap:10px}
+ h1{font-size:1.45rem}
+ .menu-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px}
+ .head-actions{display:none;width:100%;padding:10px;background:#211416;border:1px solid var(--line);border-radius:16px;grid-template-columns:1fr 1fr;gap:8px}
+ .head-actions.open{display:grid}
+ .head-actions .btn{width:100%;padding:10px 8px;font-size:.86rem}
+ .hero{padding:20px 17px;border-radius:22px 22px 22px 6px}
+ .hero .big{font-size:clamp(2rem,10vw,2.8rem);overflow-wrap:anywhere}
+ .hero .row{display:grid;grid-template-columns:1fr 1fr;gap:14px 10px}
+ .hero .row>div{min-width:0;overflow-wrap:anywhere}
+ .grid{gap:10px}
+ .card{padding:15px;border-radius:19px 19px 6px 19px}
+ .card h2{font-size:1.08rem}
+ #evo svg{min-height:120px}
+ .tw{overflow:visible}
+ #list table,#list tbody,#list tr,#list td{display:block;width:100%;min-width:0}
+ #list table{border-collapse:separate;border-spacing:0 10px}
+ #list thead{display:none}
+ #list tbody tr{background:#ffffff08;border:1px solid var(--line);border-radius:16px;padding:12px 12px 5px;overflow:hidden}
+ #list td{white-space:normal;text-align:left!important;border:0;padding:7px 0;display:grid;grid-template-columns:minmax(92px, .8fr) minmax(0,1.2fr);gap:10px;align-items:center;overflow-wrap:anywhere}
+ #list td:before{content:attr(data-label);font-size:.78rem;color:var(--mut);font-weight:600}
+ #list td:first-child{display:block;padding-top:0;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:3px}
+ #list td:first-child:before{content:none}
+ #list td:first-child b{font-size:1.08rem}
+ #list td:nth-child(5){display:none}
+ #list td:last-child{display:flex;flex-wrap:wrap;gap:6px;padding-top:10px;border-top:1px solid var(--line);margin-top:4px}
+ #list td:last-child:before{content:none}
+ #list td .btn{font-size:.78rem;padding:7px 9px}
+ dialog{padding:18px;width:calc(100vw - 24px);max-width:420px;border-radius:18px;max-height:90dvh;overflow:auto}
+ .acts{position:sticky;bottom:-18px;background:var(--bg);padding:12px 0 0;flex-wrap:wrap}
+ .acts .btn{flex:1}
+ .lock{margin:10vh 12px;padding:22px}
+}
+@media(max-width:360px){.head-actions{grid-template-columns:1fr}.hero .row{grid-template-columns:1fr 1fr}.hero .big{font-size:1.9rem}}
+
 </style>
 </head>
 <body>
@@ -72,14 +112,15 @@ input,select{width:100%;background:#ffffff0d;border:1px solid var(--line);border
 <div class="wrap" id="app" hidden>
   <header>
     <h1>Cofre</h1>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" data-act="add">Adicionar investimento</button>
-      <button class="btn ghost" data-act="quotes">Atualizar cotações</button>
+    <button class="btn ghost menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="headActions"><span aria-hidden="true">☰</span> Menu</button>
+    <nav class="head-actions" id="headActions" aria-label="Ações do cofre">
+      <button class="btn" data-act="add">＋ Investimento</button>
+      <button class="btn ghost" data-act="quotes">↻ Cotações</button>
       <button class="btn ghost" data-act="cfg">Configurar</button>
       <button class="btn ghost" data-act="export">Exportar</button>
       <button class="btn ghost" data-act="import">Importar</button>
       <button class="btn ghost" data-act="lock">Trancar</button>
-    </div>
+    </nav>
   </header>
   <input type="file" id="file" accept=".json" hidden>
   <div id="alerts" aria-live="polite"></div>
@@ -212,10 +253,10 @@ function render(){
   S.assets.map(a=>{
     const v=val(a),g=v-inv(a),gp=inv(a)?g/inv(a)*100:0,s=series(a),l=s[s.length-1],pr=s[s.length-2],ch=a.chg!=null?a.chg:(pr?(l-pr)/pr*100:0);
     return `<tr><td><b>${esc(a.name)}</b> <span class="tag">${TN[a.type]}</span><br><small class="mut">${a.type==="poup"?esc(a.rate)+"% ao mês":esc(a.qty)+" cotas · pm "+brl(a.cost)}</small></td>
-    <td class="r">${brl(v)}${a.type==="poup"?"":"<br><small class='mut'>"+brl(a.price)+"</small>"}</td>
-    <td class="r ${cls(g)}">${brl(g)}<br><small>${pct(gp)}</small></td>
-    <td class="r ${cls(ch)}">${pct(ch)}</td><td>${spark(a)}</td>
-    <td class="r">${a.type==="poup"?"":`<button class="btn sm" data-act="price" data-id="${esc(a.id)}">Cotação</button> `}${a.type==="fii"?`<button class="btn sm" data-act="div" data-id="${esc(a.id)}">Rendimento</button> `:""}${a.type==="poup"?"":`<button class="btn ghost sm" data-act="alert" data-id="${esc(a.id)}">${a.al&&(a.al.lo||a.al.hi||a.al.drop)?"Alerta ativo":"Alerta"}</button> `}<button class="btn ghost sm" data-act="del" data-id="${esc(a.id)}">Excluir</button></td></tr>`}).join("")+"</tbody></table>":
+    <td class="r" data-label="Valor atual">${brl(v)}${a.type==="poup"?"":"<br><small class='mut'>"+brl(a.price)+"</small>"}</td>
+    <td class="r ${cls(g)}" data-label="Resultado">${brl(g)}<br><small>${pct(gp)}</small></td>
+    <td class="r ${cls(ch)}" data-label="Última variação">${pct(ch)}</td><td data-label="Histórico">${spark(a)}</td>
+    <td class="r" data-label="Ações">${a.type==="poup"?"":`<button class="btn sm" data-act="price" data-id="${esc(a.id)}">Cotação</button> `}${a.type==="fii"?`<button class="btn sm" data-act="div" data-id="${esc(a.id)}">Rendimento</button> `:""}${a.type==="poup"?"":`<button class="btn ghost sm" data-act="alert" data-id="${esc(a.id)}">${a.al&&(a.al.lo||a.al.hi||a.al.drop)?"Alerta ativo":"Alerta"}</button> `}<button class="btn ghost sm" data-act="del" data-id="${esc(a.id)}">Excluir</button></td></tr>`}).join("")+"</tbody></table>":
   '<div class="empty">Nenhum investimento ainda. Toque em “Adicionar investimento”.</div>';
 }
 async function save(){snap();await persist();render()}
@@ -223,7 +264,9 @@ async function save(){snap();await persist();render()}
 /* ---------- ações ---------- */
 function toggleT(){const p=$("#aT").value==="poup";document.querySelectorAll(".qp").forEach(e=>e.hidden=p);document.querySelectorAll(".pp").forEach(e=>e.hidden=!p)}
 $("#aT").onchange=toggleT;
+$("#menuToggle").addEventListener("click",()=>{const open=$("#headActions").classList.toggle("open");$("#menuToggle").setAttribute("aria-expanded",String(open))});
 document.addEventListener("click",async e=>{
+  if(e.target.closest("[data-act]")&&window.matchMedia("(max-width: 640px)").matches){$("#headActions").classList.remove("open");$("#menuToggle").setAttribute("aria-expanded","false")}
   if(e.target.closest("[data-close]")){e.target.closest("dialog").close();return}
   const b=e.target.closest("[data-act]");if(!b)return;reset();
   const a=S.assets.find(x=>x.id===b.dataset.id),act=b.dataset.act;
