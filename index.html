@@ -173,10 +173,10 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
   <div class="qp"><label for="aD">Data da compra (pode ser antiga)</label><input id="aD" type="date"></div>
   <div class="qp"><label for="aY">Rendimentos já recebidos até hoje (R$, total) · opcional</label><input id="aY" type="number" step="any" min="0"></div>
   <div class="qp"><label for="aP">Cotação atual (R$)</label><input id="aP" type="number" step="any" min="0"></div>
-  <div class="pp" hidden><label for="aV">Valor aplicado (R$)</label><input id="aV" type="number" step="any" min="0"></div>
+  <div class="pp" hidden><label for="aV">Saldo atual da poupança (R$), já com os rendimentos</label><input id="aV" type="number" step="any" min="0"></div>
   <div class="pp" hidden><label for="aR">Rendimento mensal (%)</label><input id="aR" type="number" step="any" placeholder="Ex.: 0.6"></div>
   <div class="pp" hidden><label for="aS">Data da aplicação</label><input id="aS" type="date"></div>
-  <div class="pp" hidden><label for="aY2">Rendimento já acumulado até hoje (R$) · opcional</label><input id="aY2" type="number" step="any" min="0"></div>
+  <div class="pp" hidden><label for="aY2">Desse saldo, quanto é rendimento acumulado (R$) · opcional</label><input id="aY2" type="number" step="any" min="0"></div>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
 </form></dialog>
 
@@ -369,7 +369,7 @@ $("#fA").onsubmit=async e=>{
   e.preventDefault();const t=$("#aT").value,n=v=>parseFloat($(v).value)||0;
   const a={id:crypto.randomUUID(),type:t,name:($("#aN").value.trim()||(t==="usd"?"Dólar":"")).toUpperCase(),hist:[],divs:[]};
   if(!a.name)return;
-  if(t==="poup"){a.cost=n("#aV");a.qty=1;a.rate=n("#aR");a.start=$("#aS").value||today();if(a.cost<=0)return;a.deps=[{d:a.start,v:a.cost}];a.yprev=n("#aY2");if(a.yprev>0)a.man=true}
+  if(t==="poup"){a.cost=n("#aV");a.qty=1;a.rate=n("#aR");a.start=$("#aS").value||today();if(a.cost<=0)return;a.yprev=n("#aY2");a.cost=Math.max(0,a.cost-a.yprev);a.man=true;a.deps=[{d:a.start,v:a.cost}]}
   else{a.qty=n("#aQ");a.cost=n("#aC");a.price=n("#aP")||(t==="usd"&&FX?FX.bid:0)||a.cost;a.at=Date.now();if(a.qty<=0||a.cost<=0)return;a.hist=[{d:today(),p:a.price}];a.ops=[{d:$("#aD").value||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0;a.dprev=n("#aY")}
   S.assets.push(a);$("#dA").close();await save();
 };
@@ -377,7 +377,8 @@ $("#fP").onsubmit=async e=>{
   e.preventDefault();const v=parseFloat($("#pV").value),d=$("#pD").value;if(!(v>=0)||!d)return;
   const {a,k}=ctx;
   if(k==="price"){a.price=v;a.chg=null;a.at=Date.now();a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:v})}
-  else if(k==="prev"){if(a.type==="poup"){a.yprev=v;a.man=true}else a.dprev=v}
+  else if(k==="prev"){if(a.type==="poup"){const V=val(a);a.yprev=v;a.man=true;rebase(a,V)}else a.dprev=v}
+  else if(k==="bal"){rebase(a,v);a.man=true}
   else if(k==="dep"){(a.deps=a.deps||[]).push({d,v});a.cost=a.deps.reduce((s,x)=>s+x.v,0)}
   else if(k==="yld"){(a.ys=a.ys||[]).push({d,v});a.man=true}
   else(a.divs=a.divs||[]).push({d,v:v*a.qty});
@@ -470,6 +471,7 @@ document.addEventListener("click",async e=>{
   const fa=S.assets.find(x=>x.id===b.dataset.id);
   if(act==="prev"&&fa)openP(fa,"prev");
   if(act==="dep"&&fa)openP(fa,"dep");
+  if(act==="bal"&&fa)openP(fa,"bal");
   if(act==="yld"&&fa)openP(fa,"yld");
   if(act==="delpy"&&fa&&["deps","ys","divs"].includes(b.dataset.k)&&confirm("Apagar este lançamento?")){const k=b.dataset.k;fa[k].splice(+b.dataset.i,1);if(k==="deps")fa.cost=fa.deps.reduce((s,x)=>s+x.v,0);if(k==="ys"&&!fa.ys.length&&!fa.yprev)fa.man=false;await save();openDetail(fa)}
   if(act==="priv"){S.priv=!S.priv;await persist();render();toast(S.priv?"Valores ocultos":"Valores visíveis")}
@@ -507,12 +509,12 @@ function openDetail(a){
   const bt=(act,t,c)=>`<button class="btn ${c||""} sm" data-act="${act}" data-id="${id}">${t}</button>`;
   $("#dDc").innerHTML=`<h2 style="margin:0">${esc(a.name)} <span class="tag">${TN[a.type]}</span></h2>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0">
-   ${po?row("Taxa estimada",esc(a.rate||0)+"% ao mês"):row("Quantidade",esc(+a.qty.toFixed(4)))}${row(po?"Valor aplicado":"Preço médio",brl(a.cost))}
+   ${po?row("Taxa estimada",esc(a.rate||0)+"% ao mês"):row("Quantidade",esc(+a.qty.toFixed(4)))}${row(po?"Aplicado (sem rendimentos)":"Preço médio",brl(a.cost))}
    ${row("Valor atual",brl(v))}${row("Valorização",`<span class="${cls(g)}">${brl(g)}</span>`)}
    ${po?"":row("Cotação",brl(a.price)+" · "+ago(a))+row("Lucro realizado",brl(a.realized||0))}
    ${po?row("Rendimento acumulado",brl(v-inv(a))+(a.man?"":" (estimado)")):row("Rendimentos",brl(divs(a))+(inv(a)>0?" ("+pc(divs(a)/inv(a)*100)+" do custo)":""))}</div>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
-   ${po?bt("dep","Novo depósito")+bt("yld","Registrar rendimento")+bt("prev","Rendimentos anteriores","ghost"):bt("buy","+ Comprei mais")+bt("sell","Vendi")+(a.type==="usd"?"":bt("price","Atualizar cotação","ghost"))}
+   ${po?bt("dep","Novo depósito")+bt("yld","Registrar rendimento")+bt("prev","Rendimentos anteriores","ghost")+bt("bal","Ajustar saldo","ghost"):bt("buy","+ Comprei mais")+bt("sell","Vendi")+(a.type==="usd"?"":bt("price","Atualizar cotação","ghost"))}
    ${a.type==="fii"?bt("div","Rendimento","ghost")+bt("prev","Rendimentos anteriores","ghost"):""}${po||a.type==="usd"?"":bt("alert","Alerta","ghost")}${bt("del","Excluir","ghost")}</div>
   ${ops.length?`<h3 style="font-size:1rem;margin:18px 0 6px">Extrato de operações</h3>`+ops.map((o,i)=>({o,i})).reverse().map(({o,i})=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.d.split("-").reverse().join("/"))} · ${o.t==="c"?"Compra":"Venda"} ${esc(+o.q.toFixed(4))} × ${brl(o.p)}</span><button class="btn ghost sm" data-act="delop" data-id="${id}" data-i="${i}" aria-label="Apagar operação">✕</button></div>`).join(""):""}${pyList(a)}`;
   if(!$("#dD").open)$("#dD").showModal();
@@ -532,6 +534,7 @@ $("#fM").onsubmit=async e=>{
   $("#dM").close();await save();toast("Metas salvas");
 };
 $("#bm").onclick=()=>{scrollTo({top:0,behavior:"smooth"});$("#menuToggle").click()};
+function rebase(a,V){const dl=(V-ysum(a))-a.cost;a.cost+=dl;if(a.deps&&a.deps.length)a.deps[0].v+=dl}
 function openBuy(a,t){
   if(a.type==="poup"){openP(a,"dep");return}
   ctx={a,t};$("#bT").textContent=(t==="c"?"Comprei mais de ":"Vendi ")+a.name;$("#fB").reset();$("#bD").value=today();$("#dB").showModal();
@@ -539,10 +542,10 @@ function openBuy(a,t){
 function openP(a,k){
   ctx={a,k};
   const T={price:["Atualizar "+a.name,"Nova cotação (R$)",a.price],div:["Rendimento de "+a.name,"Valor por cota (R$)",""],
-   prev:["Rendimentos anteriores de "+a.name,"Total já recebido antes de usar o app (R$)",(a.type==="poup"?a.yprev:a.dprev)||""],
-   dep:["Novo depósito em "+a.name,"Valor depositado (R$)",""],yld:["Rendimento de "+a.name,"Rendimento creditado (R$)",""]}[k];
+   prev:["Rendimentos anteriores de "+a.name,(a.type==="poup"?"Do saldo atual, quanto é rendimento acumulado (R$)":"Total já recebido antes de usar o app (R$)"),(a.type==="poup"?a.yprev:a.dprev)||""],
+   bal:["Saldo atual de "+a.name,"Saldo atual da poupança (R$), com rendimentos",Math.round(val(a)*100)/100],dep:["Novo depósito em "+a.name,"Valor depositado (R$)",""],yld:["Rendimento de "+a.name,"Rendimento creditado (R$)",""]}[k];
   $("#pT").textContent=T[0];$("#pL").textContent=T[1];$("#pV").value=T[2];$("#pD").value=today();
-  const h=k==="prev";$("#pD").hidden=h;$("#pD").previousElementSibling.hidden=h;
+  const h=k==="prev"||k==="bal";$("#pD").hidden=h;$("#pD").previousElementSibling.hidden=h;
   $("#dP").showModal();
 }
 function pyList(a){
