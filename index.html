@@ -112,6 +112,8 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
  .wrap{padding-bottom:100px!important}
  #toast{bottom:90px}
 }
+.swh{display:none;font-size:.8rem;margin:2px 0 8px}
+@media(max-width:640px){.swh{display:block}#list tr{touch-action:pan-y}}
 </style>
 </head>
 <body>
@@ -123,6 +125,7 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
   <div id="pw2w" hidden><label for="pw2">Repita a senha</label><input id="pw2" type="password" autocomplete="off"></div>
   <p class="err" id="err" role="alert"></p>
   <button class="btn" id="go" style="width:100%"></button>
+  <button class="btn ghost" id="bio" style="width:100%;margin-top:8px" hidden>Entrar com biometria</button>
 </div>
 
 <div class="wrap" id="app" hidden>
@@ -155,6 +158,7 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
   </div>
   <div class="card" id="lista" style="margin-top:14px"><h2>Meus investimentos</h2>
     <div class="chips" id="chips" hidden><button class="chip on" data-f="all">Todos</button><button class="chip" data-f="fii">FIIs</button><button class="chip" data-f="acao">Ações</button><button class="chip" data-f="poup">Poupança</button></div>
+    <p class="mut swh">Dica: deslize o cartão para a direita para registrar uma compra ou para a esquerda para registrar um rendimento.</p>
     <div class="tw" id="list"></div></div>
   <p class="mut" style="font-size:.85rem;margin-top:18px">Seus dados ficam criptografados (AES-256) só neste navegador. Nada é enviado a servidores. Faça backup com Exportar.</p>
 </div>
@@ -172,6 +176,7 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
   <div class="pp" hidden><label for="aV">Valor aplicado (R$)</label><input id="aV" type="number" step="any" min="0"></div>
   <div class="pp" hidden><label for="aR">Rendimento mensal (%)</label><input id="aR" type="number" step="any" placeholder="Ex.: 0.6"></div>
   <div class="pp" hidden><label for="aS">Data da aplicação</label><input id="aS" type="date"></div>
+  <div class="pp" hidden><label for="aY2">Rendimento já acumulado até hoje (R$) · opcional</label><input id="aY2" type="number" step="any" min="0"></div>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
 </form></dialog>
 
@@ -189,6 +194,10 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
   <label class="chk"><input type="checkbox" id="sA">Atualizar cotações sozinho a cada 5 minutos</label>
   <label for="sM">Trancar após inatividade</label>
   <select id="sM"><option value="5">5 minutos</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60">1 hora</option></select>
+  <label for="bioPw" style="margin-top:16px">Desbloqueio por biometria</label>
+  <input id="bioPw" type="password" autocomplete="off" placeholder="Digite sua senha atual para ativar">
+  <div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn ghost sm" id="bioOn">Ativar</button><button type="button" class="btn ghost sm" id="bioOff">Desativar</button></div>
+  <p class="mut" style="font-size:.8rem;margin:6px 0 0">Usa a digital ou o rosto do aparelho. Se o navegador não suportar, você continua entrando com a senha.</p>
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
 </form></dialog>
 
@@ -264,11 +273,13 @@ async function persist(){
 
 /* ---------- cálculos ---------- */
 const months=s=>{const a=new Date(s),b=new Date();let m=(b.getFullYear()-a.getFullYear())*12+b.getMonth()-a.getMonth();if(b.getDate()<a.getDate())m--;return Math.max(0,m)};
-const val=a=>a.type==="poup"?a.cost*Math.pow(1+a.rate/100,months(a.start)):a.qty*a.price;
+const ysum=a=>(a.ys||[]).reduce((t,x)=>t+x.v,0)+(a.yprev||0);
+const val=a=>a.type==="poup"?(a.man?a.cost+ysum(a):(a.deps||[{d:a.start,v:a.cost}]).reduce((t,x)=>t+x.v*Math.pow(1+a.rate/100,months(x.d)),0)):a.qty*a.price;
 const inv=a=>a.type==="poup"?a.cost:a.qty*a.cost;
 const divs=a=>(a.divs||[]).reduce((t,d)=>t+d.v,0)+(a.dprev||0);
 function series(a){
   if(a.type==="usd"&&FX&&FX.hist&&FX.hist.length>1)return FX.hist;
+  if(a.type==="poup"&&a.man){let c=a.cost+(a.yprev||0);const o=[c];(a.ys||[]).slice().sort((x,y)=>x.d.localeCompare(y.d)).forEach(x=>o.push(c+=x.v));return o.length>1?o:[o[0],o[0]]}
   if(a.type==="poup"){const n=months(a.start),o=[];for(let i=0;i<=n;i++)o.push(a.cost*Math.pow(1+a.rate/100,i));return o.length>1?o:[a.cost,a.cost]}
   const h=[...(a.hist||[])].sort((x,y)=>x.d.localeCompare(y.d)).map(x=>x.p);return h.length>1?h:[a.price,a.price];
 }
@@ -321,7 +332,7 @@ function render(){
   $("#list").innerHTML=L.length?`<table><thead><tr><th>Ativo</th><th class="r">Valor atual</th><th class="r">Resultado</th><th class="r">Variação</th><th>Histórico</th><th class="r">Ações</th></tr></thead><tbody>`+
   L.map(a=>{
     const v=val(a),g=v-inv(a),gp=inv(a)?g/inv(a)*100:0,s=series(a),l=s[s.length-1],pr=s[s.length-2],ch=a.chg!=null?a.chg:(pr?(l-pr)/pr*100:0);
-    return `<tr><td><b>${esc(a.name)}</b> <span class="tag">${TN[a.type]}</span><br><small class="mut">${a.type==="poup"?esc(a.rate)+"% ao mês":esc(+a.qty.toFixed(4))+(a.type==="usd"?" US$ · preço médio ":" cotas · preço médio ")+brl(a.cost)}</small></td>
+    return `<tr data-id="${esc(a.id)}"><td><b>${esc(a.name)}</b> <span class="tag">${TN[a.type]}</span><br><small class="mut">${a.type==="poup"?esc(a.rate)+"% ao mês":esc(+a.qty.toFixed(4))+(a.type==="usd"?" US$ · preço médio ":" cotas · preço médio ")+brl(a.cost)}</small></td>
     <td class="r" data-label="Valor atual">${brl(v)}${a.type==="poup"?"":"<br><small class='mut'>"+brl(a.price)+" · "+ago(a)+"</small>"}</td>
     <td class="r ${cls(g)}" data-label="Resultado">${brl(g)}<br><small>${pct(gp)}</small></td>
     <td class="r ${cls(ch)}" data-label="Variação">${pct(ch)}</td><td data-label="Histórico">${spark(a)}</td>
@@ -358,7 +369,7 @@ $("#fA").onsubmit=async e=>{
   e.preventDefault();const t=$("#aT").value,n=v=>parseFloat($(v).value)||0;
   const a={id:crypto.randomUUID(),type:t,name:($("#aN").value.trim()||(t==="usd"?"Dólar":"")).toUpperCase(),hist:[],divs:[]};
   if(!a.name)return;
-  if(t==="poup"){a.cost=n("#aV");a.qty=1;a.rate=n("#aR");a.start=$("#aS").value||today();if(a.cost<=0)return}
+  if(t==="poup"){a.cost=n("#aV");a.qty=1;a.rate=n("#aR");a.start=$("#aS").value||today();if(a.cost<=0)return;a.deps=[{d:a.start,v:a.cost}];a.yprev=n("#aY2");if(a.yprev>0)a.man=true}
   else{a.qty=n("#aQ");a.cost=n("#aC");a.price=n("#aP")||(t==="usd"&&FX?FX.bid:0)||a.cost;a.at=Date.now();if(a.qty<=0||a.cost<=0)return;a.hist=[{d:today(),p:a.price}];a.ops=[{d:$("#aD").value||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0;a.dprev=n("#aY")}
   S.assets.push(a);$("#dA").close();await save();
 };
@@ -366,7 +377,9 @@ $("#fP").onsubmit=async e=>{
   e.preventDefault();const v=parseFloat($("#pV").value),d=$("#pD").value;if(!(v>=0)||!d)return;
   const {a,k}=ctx;
   if(k==="price"){a.price=v;a.chg=null;a.at=Date.now();a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:v})}
-  else if(k==="prev")a.dprev=v;
+  else if(k==="prev"){if(a.type==="poup"){a.yprev=v;a.man=true}else a.dprev=v}
+  else if(k==="dep"){(a.deps=a.deps||[]).push({d,v});a.cost=a.deps.reduce((s,x)=>s+x.v,0)}
+  else if(k==="yld"){(a.ys=a.ys||[]).push({d,v});a.man=true}
   else(a.divs=a.divs||[]).push({d,v:v*a.qty});
   $("#dP").close();await save();
 };
@@ -443,19 +456,22 @@ function renderInc(){
   const el=$("#inc");if(!el)return;
   const m={},now=new Date(),keys=[];
   for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);keys.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"))}
-  S.assets.forEach(a=>(a.divs||[]).forEach(x=>{const k=String(x.d).slice(0,7);m[k]=(m[k]||0)+x.v}));
+  S.assets.forEach(a=>(a.type==="poup"?a.ys||[]:a.divs||[]).forEach(x=>{const k=String(x.d).slice(0,7);m[k]=(m[k]||0)+x.v}));
   const vs=keys.map(k=>m[k]||0),mx=Math.max(...vs),sum=vs.reduce((a,b)=>a+b,0),p3=vs.slice(-3).reduce((a,b)=>a+b,0)/3;
-  if(!mx){el.innerHTML='<div class="empty">Registre os rendimentos dos FIIs (botão “Rendimento”) para ver o gráfico.</div>';return}
+  if(!mx){el.innerHTML='<div class="empty">Registre os rendimentos (FIIs e poupança) em Detalhes para ver o gráfico.</div>';return}
   el.innerHTML=`<svg viewBox="0 0 300 90" role="img" aria-label="Rendimentos por mês">${vs.map((v,i)=>`<rect x="${i*25+3}" y="${(84-v/mx*80).toFixed(1)}" width="19" height="${Math.max(1,v/mx*80).toFixed(1)}" rx="3" fill="#F2E3C6"/>`).join("")}</svg><small class="mut">Média de ${brl(sum/12)} por mês · projeção de ${brl(p3)} por mês (média dos últimos 3 meses)</small>`+(S.incGoal>0?`<div class="bar" style="margin-top:10px"><i style="width:${Math.min(100,p3/S.incGoal*100)}%;background:var(--cream)"></i></div><small class="mut">${(p3/S.incGoal*100).toFixed(0)}% da meta de ${brl(S.incGoal)} por mês</small>`:"");
 }
 document.addEventListener("click",async e=>{
   const c=e.target.closest("[data-f]");
   if(c){flt=c.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));render();return}
   const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act;
-  if(b.closest("#dD")&&act!=="delop")$("#dD").close();
+  if(b.closest("#dD")&&act!=="delop"&&act!=="delpy")$("#dD").close();
   $("#pD").hidden=false;$("#pD").previousElementSibling.hidden=false;
   const fa=S.assets.find(x=>x.id===b.dataset.id);
-  if(act==="prev"&&fa){ctx={a:fa,k:"prev"};$("#pT").textContent="Rendimentos anteriores de "+fa.name;$("#pL").textContent="Total já recebido antes de usar o app (R$)";$("#pV").value=fa.dprev||"";$("#pD").value=today();$("#pD").hidden=true;$("#pD").previousElementSibling.hidden=true;$("#dP").showModal()}
+  if(act==="prev"&&fa)openP(fa,"prev");
+  if(act==="dep"&&fa)openP(fa,"dep");
+  if(act==="yld"&&fa)openP(fa,"yld");
+  if(act==="delpy"&&fa&&["deps","ys","divs"].includes(b.dataset.k)&&confirm("Apagar este lançamento?")){const k=b.dataset.k;fa[k].splice(+b.dataset.i,1);if(k==="deps")fa.cost=fa.deps.reduce((s,x)=>s+x.v,0);if(k==="ys"&&!fa.ys.length&&!fa.yprev)fa.man=false;await save();openDetail(fa)}
   if(act==="priv"){S.priv=!S.priv;await persist();render();toast(S.priv?"Valores ocultos":"Valores visíveis")}
   if(act==="fx"){const f=S.fx||{};$("#xLo").value=f.lo||"";$("#xHi").value=f.hi||"";$("#xVr").value=f.var||"";$("#dF").showModal()}
   if(act==="quotes")fetchFx();
@@ -476,7 +492,7 @@ $("#fF").onsubmit=async e=>{
   if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
   $("#dF").close();seen.clear();await save();toast("Alerta do dólar salvo");
 };
-function migrate(a){if(a.type!=="poup"&&!a.ops){a.ops=[{d:(a.hist&&a.hist[0]&&a.hist[0].d)||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0}}
+function migrate(a){if(a.type==="poup"&&!a.deps)a.deps=[{d:a.start||today(),v:a.cost}];if(a.type!=="poup"&&!a.ops){a.ops=[{d:(a.hist&&a.hist[0]&&a.hist[0].d)||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0}}
 function recalc(a){
   let q=0,c=0,r=0;
   [...a.ops].sort((x,y)=>x.d.localeCompare(y.d)).forEach(o=>{
@@ -491,14 +507,14 @@ function openDetail(a){
   const bt=(act,t,c)=>`<button class="btn ${c||""} sm" data-act="${act}" data-id="${id}">${t}</button>`;
   $("#dDc").innerHTML=`<h2 style="margin:0">${esc(a.name)} <span class="tag">${TN[a.type]}</span></h2>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0">
-   ${row("Quantidade",esc(+a.qty.toFixed(4)))}${row(po?"Valor aplicado":"Preço médio",brl(a.cost))}
+   ${po?row("Taxa estimada",esc(a.rate||0)+"% ao mês"):row("Quantidade",esc(+a.qty.toFixed(4)))}${row(po?"Valor aplicado":"Preço médio",brl(a.cost))}
    ${row("Valor atual",brl(v))}${row("Valorização",`<span class="${cls(g)}">${brl(g)}</span>`)}
    ${po?"":row("Cotação",brl(a.price)+" · "+ago(a))+row("Lucro realizado",brl(a.realized||0))}
-   ${row("Rendimentos",brl(divs(a))+(inv(a)>0?" ("+pc(divs(a)/inv(a)*100)+" do custo)":""))}</div>
+   ${po?row("Rendimento acumulado",brl(v-inv(a))+(a.man?"":" (estimado)")):row("Rendimentos",brl(divs(a))+(inv(a)>0?" ("+pc(divs(a)/inv(a)*100)+" do custo)":""))}</div>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
-   ${po?"":bt("buy","+ Comprei mais")+bt("sell","Vendi")+(a.type==="usd"?"":bt("price","Atualizar cotação","ghost"))}
+   ${po?bt("dep","Novo depósito")+bt("yld","Registrar rendimento")+bt("prev","Rendimentos anteriores","ghost"):bt("buy","+ Comprei mais")+bt("sell","Vendi")+(a.type==="usd"?"":bt("price","Atualizar cotação","ghost"))}
    ${a.type==="fii"?bt("div","Rendimento","ghost")+bt("prev","Rendimentos anteriores","ghost"):""}${po||a.type==="usd"?"":bt("alert","Alerta","ghost")}${bt("del","Excluir","ghost")}</div>
-  ${ops.length?`<h3 style="font-size:1rem;margin:18px 0 6px">Extrato de operações</h3>`+ops.map((o,i)=>({o,i})).reverse().map(({o,i})=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.d.split("-").reverse().join("/"))} · ${o.t==="c"?"Compra":"Venda"} ${esc(+o.q.toFixed(4))} × ${brl(o.p)}</span><button class="btn ghost sm" data-act="delop" data-id="${id}" data-i="${i}" aria-label="Apagar operação">✕</button></div>`).join(""):""}`;
+  ${ops.length?`<h3 style="font-size:1rem;margin:18px 0 6px">Extrato de operações</h3>`+ops.map((o,i)=>({o,i})).reverse().map(({o,i})=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.d.split("-").reverse().join("/"))} · ${o.t==="c"?"Compra":"Venda"} ${esc(+o.q.toFixed(4))} × ${brl(o.p)}</span><button class="btn ghost sm" data-act="delop" data-id="${id}" data-i="${i}" aria-label="Apagar operação">✕</button></div>`).join(""):""}${pyList(a)}`;
   if(!$("#dD").open)$("#dD").showModal();
 }
 function calcReb(){
@@ -516,6 +532,89 @@ $("#fM").onsubmit=async e=>{
   $("#dM").close();await save();toast("Metas salvas");
 };
 $("#bm").onclick=()=>{scrollTo({top:0,behavior:"smooth"});$("#menuToggle").click()};
+function openBuy(a,t){
+  if(a.type==="poup"){openP(a,"dep");return}
+  ctx={a,t};$("#bT").textContent=(t==="c"?"Comprei mais de ":"Vendi ")+a.name;$("#fB").reset();$("#bD").value=today();$("#dB").showModal();
+}
+function openP(a,k){
+  ctx={a,k};
+  const T={price:["Atualizar "+a.name,"Nova cotação (R$)",a.price],div:["Rendimento de "+a.name,"Valor por cota (R$)",""],
+   prev:["Rendimentos anteriores de "+a.name,"Total já recebido antes de usar o app (R$)",(a.type==="poup"?a.yprev:a.dprev)||""],
+   dep:["Novo depósito em "+a.name,"Valor depositado (R$)",""],yld:["Rendimento de "+a.name,"Rendimento creditado (R$)",""]}[k];
+  $("#pT").textContent=T[0];$("#pL").textContent=T[1];$("#pV").value=T[2];$("#pD").value=today();
+  const h=k==="prev";$("#pD").hidden=h;$("#pD").previousElementSibling.hidden=h;
+  $("#dP").showModal();
+}
+function pyList(a){
+  const R=[],po=a.type==="poup";
+  if(po)(a.deps||[]).forEach((x,i)=>R.push({...x,l:"Depósito",k:"deps",i}));
+  (po?a.ys||[]:a.divs||[]).forEach((x,i)=>R.push({...x,l:"Rendimento",k:po?"ys":"divs",i}));
+  R.sort((x,y)=>y.d.localeCompare(x.d));
+  return R.length?`<h3 style="font-size:1rem;margin:18px 0 6px">${po?"Depósitos e rendimentos":"Rendimentos recebidos"}</h3>`+R.map(r=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(r.d.split("-").reverse().join("/"))} · ${r.l} ${brl(r.v)}</span><button class="btn ghost sm" data-act="delpy" data-id="${esc(a.id)}" data-k="${r.k}" data-i="${r.i}" aria-label="Apagar lançamento">✕</button></div>`).join(""):"";
+}
+/* deslizar a linha: direita = compra/depósito, esquerda = rendimento */
+(()=>{
+  const L=$("#list");let sx=0,sy=0,sr=null,dx=0;
+  L.addEventListener("touchstart",e=>{
+    const r=e.target.closest("tr[data-id]");
+    if(!r||e.target.closest("button,a,input")){sr=null;return}
+    sx=e.touches[0].clientX;sy=e.touches[0].clientY;sr=r;dx=0;r.style.transition="none";
+  },{passive:true});
+  L.addEventListener("touchmove",e=>{
+    if(!sr)return;dx=e.touches[0].clientX-sx;const dy=e.touches[0].clientY-sy;
+    if(Math.abs(dy)>Math.abs(dx)){dx=0;return}
+    if(Math.abs(dx)>10){sr.style.transform=`translateX(${Math.max(-110,Math.min(110,dx))}px)`;sr.style.background=dx>0?"#86d6ad40":"#F2E3C640"}
+  },{passive:true});
+  L.addEventListener("touchend",()=>{
+    if(!sr)return;const r=sr;sr=null;
+    r.style.transition="transform .2s,background .2s";r.style.transform="";r.style.background="";
+    if(Math.abs(dx)<80)return;
+    const a=S.assets.find(x=>x.id===r.dataset.id);if(!a)return;
+    if(dx>0)openBuy(a,"c");
+    else if(a.type==="fii")openP(a,"div");
+    else if(a.type==="poup")openP(a,"yld");
+    else toast("Deslizar para a esquerda registra rendimento de FIIs e poupança.");
+  },{passive:true});
+})();
+/* biometria (WebAuthn + PRF): a senha fica guardada cifrada com uma chave que só o aparelho gera */
+const BIO="cofre_bio_v1",BSALT=new TextEncoder().encode("cofre-biometria-v1");
+async function bioEnable(){
+  const pw=$("#bioPw").value;if(!pw){toast("Digite sua senha atual.");return}
+  try{const o=JSON.parse(localStorage.getItem(LS));await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(o.i)},await derive(pw,unb64(o.s)),unb64(o.d))}
+  catch{toast("Senha incorreta.");return}
+  if(!window.PublicKeyCredential||!navigator.credentials){toast("Este navegador não suporta biometria.");return}
+  try{
+    const cred=await navigator.credentials.create({publicKey:{
+      rp:{name:"Cofre"},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:"cofre",displayName:"Cofre"},
+      challenge:crypto.getRandomValues(new Uint8Array(32)),
+      pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],
+      authenticatorSelection:{residentKey:"required",userVerification:"required",authenticatorAttachment:"platform"},
+      extensions:{prf:{eval:{first:BSALT}}}}});
+    let out=(cred.getClientExtensionResults().prf||{}).results;out=out&&out.first;
+    if(!out){
+      const g=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:"public-key",id:cred.rawId}],userVerification:"required",extensions:{prf:{eval:{first:BSALT}}}}});
+      out=(g.getClientExtensionResults().prf||{}).results;out=out&&out.first;
+    }
+    if(!out){toast("Este aparelho não oferece biometria compatível com o app.");return}
+    const key=await crypto.subtle.importKey("raw",out,"AES-GCM",false,["encrypt"]),iv=crypto.getRandomValues(new Uint8Array(12));
+    const d=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(pw));
+    localStorage.setItem(BIO,JSON.stringify({id:b64(cred.rawId),i:b64(iv),d:b64(d)}));
+    $("#bioPw").value="";toast("Biometria ativada");
+  }catch{toast("Não foi possível ativar a biometria.")}
+}
+async function bioUnlock(){
+  const b=localStorage.getItem(BIO);if(!b)return;
+  try{
+    const o=JSON.parse(b);
+    const g=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:"public-key",id:unb64(o.id)}],userVerification:"required",extensions:{prf:{eval:{first:BSALT}}}}});
+    let out=(g.getClientExtensionResults().prf||{}).results;out=out&&out.first;if(!out)throw 0;
+    const key=await crypto.subtle.importKey("raw",out,"AES-GCM",false,["decrypt"]);
+    $("#pw").value=new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(o.i)},key,unb64(o.d)));
+    await unlock();
+  }catch{$("#err").textContent="A biometria não funcionou. Digite a senha."}
+}
+$("#bio").onclick=bioUnlock;$("#bioOn").onclick=bioEnable;
+$("#bioOff").onclick=()=>{localStorage.removeItem(BIO);toast("Biometria desativada")};
 $("#file").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   try{const j=JSON.parse(await f.text());if(!Array.isArray(j.assets))throw 0;
@@ -534,7 +633,7 @@ function showLock(){
   $("#lock").hidden=false;$("#pw").value="";$("#pw2").value="";$("#err").textContent="";
   $("#lt").textContent=has?"Cofre trancado":"Crie sua senha";
   $("#ls").textContent=has?"Digite a senha para ver seus investimentos.":"Ela protege seus dados. Não há como recuperá-la se for esquecida.";
-  $("#pw2w").hidden=has;$("#go").textContent=has?"Destrancar":"Criar cofre";$("#pw").focus();
+  $("#pw2w").hidden=has;$("#go").textContent=has?"Destrancar":"Criar cofre";$("#pw").focus();$("#bio").hidden=!(has&&localStorage.getItem(BIO)&&window.PublicKeyCredential);
 }
 async function unlock(){
   const pw=$("#pw").value,has=localStorage.getItem(LS);$("#err").textContent="";
@@ -554,7 +653,7 @@ async function unlock(){
 $("#go").onclick=unlock;
 ["#pw","#pw2"].forEach(s=>$(s).addEventListener("keydown",e=>{if(e.key==="Enter")unlock()}));
 if(!window.crypto||!crypto.subtle){document.body.innerHTML="<p style='padding:30px'>Este navegador não suporta criptografia. Use HTTPS (GitHub Pages) e um navegador atual.</p>"}
-else showLock();
+else{showLock();if(localStorage.getItem(BIO))bioUnlock()}
 if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
