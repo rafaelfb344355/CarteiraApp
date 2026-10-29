@@ -145,7 +145,6 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
   <div id="alerts" aria-live="polite"></div>
   <p class="mut" id="st" style="margin:0 0 10px"></p>
   <section class="hero" id="hero"></section>
-  <div class="card" id="insCard" hidden style="margin-bottom:14px"><h2>Pontos de atenção</h2><div id="ins"></div></div>
   <div class="grid">
     <div class="card"><h2>Evolução do patrimônio</h2><div id="evo"></div></div>
     <div class="card cream"><h2>Distribuição <button class="btn sm" data-act="goals" style="float:right;background:var(--green);color:var(--cream)">Metas</button></h2><div id="alloc"></div></div>
@@ -167,7 +166,8 @@ body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[
   <label for="aN">Nome ou código</label><input id="aN" maxlength="40" placeholder="Ex.: MXRF11">
   <div class="qp"><label for="aQ" id="aQl">Quantidade de cotas</label><input id="aQ" type="number" step="any" min="0"></div>
   <div class="qp"><label for="aC" id="aCl">Preço médio pago (R$)</label><input id="aC" type="number" step="any" min="0"></div>
-  <div class="qp"><label for="aD">Data da compra</label><input id="aD" type="date"></div>
+  <div class="qp"><label for="aD">Data da compra (pode ser antiga)</label><input id="aD" type="date"></div>
+  <div class="qp"><label for="aY">Rendimentos já recebidos até hoje (R$, total) · opcional</label><input id="aY" type="number" step="any" min="0"></div>
   <div class="qp"><label for="aP">Cotação atual (R$)</label><input id="aP" type="number" step="any" min="0"></div>
   <div class="pp" hidden><label for="aV">Valor aplicado (R$)</label><input id="aV" type="number" step="any" min="0"></div>
   <div class="pp" hidden><label for="aR">Rendimento mensal (%)</label><input id="aR" type="number" step="any" placeholder="Ex.: 0.6"></div>
@@ -266,7 +266,7 @@ async function persist(){
 const months=s=>{const a=new Date(s),b=new Date();let m=(b.getFullYear()-a.getFullYear())*12+b.getMonth()-a.getMonth();if(b.getDate()<a.getDate())m--;return Math.max(0,m)};
 const val=a=>a.type==="poup"?a.cost*Math.pow(1+a.rate/100,months(a.start)):a.qty*a.price;
 const inv=a=>a.type==="poup"?a.cost:a.qty*a.cost;
-const divs=a=>(a.divs||[]).reduce((t,d)=>t+d.v,0);
+const divs=a=>(a.divs||[]).reduce((t,d)=>t+d.v,0)+(a.dprev||0);
 function series(a){
   if(a.type==="usd"&&FX&&FX.hist&&FX.hist.length>1)return FX.hist;
   if(a.type==="poup"){const n=months(a.start),o=[];for(let i=0;i<=n;i++)o.push(a.cost*Math.pow(1+a.rate/100,i));return o.length>1?o:[a.cost,a.cost]}
@@ -304,7 +304,7 @@ function spark(a){
 /* ---------- render ---------- */
 function render(){
   document.body.classList.toggle("priv",!!S.priv);
-  renderFx();renderInc();renderIns();
+  renderFx();renderInc();
   checkAlerts();
   const t=totals();
   $("#hero").innerHTML=`<small>Patrimônio atual</small><div class="big">${brl(t.v)}</div>
@@ -359,13 +359,14 @@ $("#fA").onsubmit=async e=>{
   const a={id:crypto.randomUUID(),type:t,name:($("#aN").value.trim()||(t==="usd"?"Dólar":"")).toUpperCase(),hist:[],divs:[]};
   if(!a.name)return;
   if(t==="poup"){a.cost=n("#aV");a.qty=1;a.rate=n("#aR");a.start=$("#aS").value||today();if(a.cost<=0)return}
-  else{a.qty=n("#aQ");a.cost=n("#aC");a.price=n("#aP")||(t==="usd"&&FX?FX.bid:0)||a.cost;a.at=Date.now();if(a.qty<=0||a.cost<=0)return;a.hist=[{d:today(),p:a.price}];a.ops=[{d:$("#aD").value||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0}
+  else{a.qty=n("#aQ");a.cost=n("#aC");a.price=n("#aP")||(t==="usd"&&FX?FX.bid:0)||a.cost;a.at=Date.now();if(a.qty<=0||a.cost<=0)return;a.hist=[{d:today(),p:a.price}];a.ops=[{d:$("#aD").value||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0;a.dprev=n("#aY")}
   S.assets.push(a);$("#dA").close();await save();
 };
 $("#fP").onsubmit=async e=>{
   e.preventDefault();const v=parseFloat($("#pV").value),d=$("#pD").value;if(!(v>=0)||!d)return;
   const {a,k}=ctx;
   if(k==="price"){a.price=v;a.chg=null;a.at=Date.now();a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:v})}
+  else if(k==="prev")a.dprev=v;
   else(a.divs=a.divs||[]).push({d,v:v*a.qty});
   $("#dP").close();await save();
 };
@@ -452,7 +453,9 @@ document.addEventListener("click",async e=>{
   if(c){flt=c.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));render();return}
   const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act;
   if(b.closest("#dD")&&act!=="delop")$("#dD").close();
+  $("#pD").hidden=false;$("#pD").previousElementSibling.hidden=false;
   const fa=S.assets.find(x=>x.id===b.dataset.id);
+  if(act==="prev"&&fa){ctx={a:fa,k:"prev"};$("#pT").textContent="Rendimentos anteriores de "+fa.name;$("#pL").textContent="Total já recebido antes de usar o app (R$)";$("#pV").value=fa.dprev||"";$("#pD").value=today();$("#pD").hidden=true;$("#pD").previousElementSibling.hidden=true;$("#dP").showModal()}
   if(act==="priv"){S.priv=!S.priv;await persist();render();toast(S.priv?"Valores ocultos":"Valores visíveis")}
   if(act==="fx"){const f=S.fx||{};$("#xLo").value=f.lo||"";$("#xHi").value=f.hi||"";$("#xVr").value=f.var||"";$("#dF").showModal()}
   if(act==="quotes")fetchFx();
@@ -494,28 +497,10 @@ function openDetail(a){
    ${row("Rendimentos",brl(divs(a))+(inv(a)>0?" ("+pc(divs(a)/inv(a)*100)+" do custo)":""))}</div>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
    ${po?"":bt("buy","+ Comprei mais")+bt("sell","Vendi")+(a.type==="usd"?"":bt("price","Atualizar cotação","ghost"))}
-   ${a.type==="fii"?bt("div","Rendimento","ghost"):""}${po||a.type==="usd"?"":bt("alert","Alerta","ghost")}${bt("del","Excluir","ghost")}</div>
+   ${a.type==="fii"?bt("div","Rendimento","ghost")+bt("prev","Rendimentos anteriores","ghost"):""}${po||a.type==="usd"?"":bt("alert","Alerta","ghost")}${bt("del","Excluir","ghost")}</div>
   ${ops.length?`<h3 style="font-size:1rem;margin:18px 0 6px">Extrato de operações</h3>`+ops.map((o,i)=>({o,i})).reverse().map(({o,i})=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.d.split("-").reverse().join("/"))} · ${o.t==="c"?"Compra":"Venda"} ${esc(+o.q.toFixed(4))} × ${brl(o.p)}</span><button class="btn ghost sm" data-act="delop" data-id="${id}" data-i="${i}" aria-label="Apagar operação">✕</button></div>`).join(""):""}`;
   if(!$("#dD").open)$("#dD").showModal();
 }
-function insights(){
-  const o=[],t=totals(),g=S.goals||{};
-  S.assets.forEach(a=>{
-    const v=val(a);
-    if(t.v>0&&S.assets.length>1&&v/t.v>0.3)o.push(`${a.name} concentra ${(v/t.v*100).toFixed(0)}% da carteira.`);
-    if(a.type!=="poup"&&a.qty>0&&a.cost>0&&a.price<a.cost*0.85)o.push(`${a.name} está ${((1-a.price/a.cost)*100).toFixed(0)}% abaixo do seu preço médio.`);
-    if(a.type==="fii"&&a.qty>0){const l=(a.divs||[]).map(x=>x.d).sort().pop();if(!l||(Date.now()-new Date(l))/864e5>40)o.push(`Nenhum rendimento de ${a.name} registrado há mais de 40 dias.`)}
-    if((a.type==="fii"||a.type==="acao")&&a.at&&Date.now()-a.at>36*36e5)o.push(`A cotação de ${a.name} está desatualizada (${ago(a)}).`);
-  });
-  ["fii","acao","poup","usd"].forEach(k=>{
-    if(!g[k]||t.v<=0)return;
-    const p=S.assets.filter(a=>a.type===k).reduce((s,a)=>s+val(a),0)/t.v*100;
-    if(Math.abs(p-g[k])>=5)o.push(`${TN[k]} está em ${p.toFixed(0)}% e a sua meta é ${g[k]}%.`);
-  });
-  if(S.assets.length&&(S.bk?Date.now()-S.bk>30*864e5:S.snaps.length>7))o.push("Faz mais de 30 dias que você não exporta um backup. Use Exportar no menu.");
-  return o;
-}
-function renderIns(){const o=insights();$("#insCard").hidden=!o.length;$("#ins").innerHTML=o.map(x=>`<div class="alert" style="background:#ffffff10;border-color:var(--line)">${esc(x)}</div>`).join("")}
 function calcReb(){
   const ks=["fii","acao","poup","usd"],A=parseFloat($("#mA").value)||0,gs=ks.map(k=>+$("#m_"+k).value||0),sum=gs.reduce((a,b)=>a+b,0);
   const cur=ks.map(k=>S.assets.filter(a=>a.type===k).reduce((s,a)=>s+val(a),0)),R=$("#mR");
