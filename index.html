@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; connect-src https://brapi.dev; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; connect-src https://brapi.dev https://economia.awesomeapi.com.br; form-action 'none'">
 <title>Cofre · Meus investimentos</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4A010A">
@@ -96,6 +96,22 @@ input,select{width:100%;background:#ffffff0d;border:1px solid var(--line);border
 }
 @media(max-width:360px){.head-actions{grid-template-columns:1fr}.hero .row{grid-template-columns:1fr 1fr}.hero .big{font-size:1.9rem}}
 
+.g2{display:grid;gap:14px;grid-template-columns:1fr 1fr;margin-top:14px}
+@media(max-width:760px){.g2{grid-template-columns:1fr}}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
+.chip{background:transparent;border:1px solid var(--line);border-radius:99px;padding:5px 14px;cursor:pointer;color:var(--cream)}
+.chip.on{background:var(--cream);color:var(--wine);font-weight:700}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--cream);color:var(--wine);padding:10px 18px;border-radius:99px;font-weight:700;z-index:50;opacity:0;pointer-events:none;transition:opacity .25s;max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+body.priv #hero .big,body.priv #hero b,body.priv #alloc span,body.priv #list td[data-label="Valor atual"],body.priv #list td[data-label="Resultado"]{filter:blur(8px)}
+.bnav{display:none}
+@media(max-width:640px){
+ .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:15;background:#1a0e10;border-top:1px solid var(--line);padding:6px 6px max(6px,env(safe-area-inset-bottom));justify-content:space-around;align-items:center}
+ .bnav a,.bnav button{background:none;border:0;color:var(--cream);text-decoration:none;font-size:.8rem;padding:8px 12px;min-height:44px;cursor:pointer;display:inline-flex;align-items:center}
+ .bnav .fab{background:var(--cream);color:var(--wine);font-size:1.8rem;font-weight:700;width:54px;height:54px;border-radius:50%;margin-top:-26px;box-shadow:0 6px 18px #000a;padding:0;justify-content:center}
+ .wrap{padding-bottom:100px!important}
+ #toast{bottom:90px}
+}
 </style>
 </head>
 <body>
@@ -116,31 +132,42 @@ input,select{width:100%;background:#ffffff0d;border:1px solid var(--line);border
     <nav class="head-actions" id="headActions" aria-label="Ações do cofre">
       <button class="btn" data-act="add">＋ Investimento</button>
       <button class="btn ghost" data-act="quotes">↻ Cotações</button>
+      <button class="btn ghost" data-act="fx">Alerta do dólar</button>
       <button class="btn ghost" data-act="cfg">Configurar</button>
+      <button class="btn ghost" data-act="priv">Ocultar valores</button>
       <button class="btn ghost" data-act="export">Exportar</button>
       <button class="btn ghost" data-act="import">Importar</button>
       <button class="btn ghost" data-act="lock">Trancar</button>
     </nav>
   </header>
   <input type="file" id="file" accept=".json" hidden>
+  <nav class="bnav" aria-label="Navegação"><a href="#hero">Resumo</a><a href="#lista">Ativos</a><button class="fab" data-act="add" aria-label="Adicionar investimento">+</button><a href="#fxcard">Dólar</a><button id="bm">Mais</button></nav>
   <div id="alerts" aria-live="polite"></div>
   <p class="mut" id="st" style="margin:0 0 10px"></p>
   <section class="hero" id="hero"></section>
+  <div class="card" id="insCard" hidden style="margin-bottom:14px"><h2>Pontos de atenção</h2><div id="ins"></div></div>
   <div class="grid">
     <div class="card"><h2>Evolução do patrimônio</h2><div id="evo"></div></div>
-    <div class="card cream"><h2>Distribuição</h2><div id="alloc"></div></div>
+    <div class="card cream"><h2>Distribuição <button class="btn sm" data-act="goals" style="float:right;background:var(--green);color:var(--cream)">Metas</button></h2><div id="alloc"></div></div>
   </div>
-  <div class="card" style="margin-top:14px"><h2>Meus investimentos</h2><div class="tw" id="list"></div></div>
+  <div class="g2">
+    <div class="card" id="fxcard"><h2>Dólar (USD/BRL) <button class="btn ghost sm" data-act="fx" style="float:right">Alertas</button></h2><div id="fx"></div></div>
+    <div class="card"><h2>Rendimentos por mês</h2><div id="inc"></div></div>
+  </div>
+  <div class="card" id="lista" style="margin-top:14px"><h2>Meus investimentos</h2>
+    <div class="chips" id="chips" hidden><button class="chip on" data-f="all">Todos</button><button class="chip" data-f="fii">FIIs</button><button class="chip" data-f="acao">Ações</button><button class="chip" data-f="poup">Poupança</button></div>
+    <div class="tw" id="list"></div></div>
   <p class="mut" style="font-size:.85rem;margin-top:18px">Seus dados ficam criptografados (AES-256) só neste navegador. Nada é enviado a servidores. Faça backup com Exportar.</p>
 </div>
 
 <dialog id="dA"><form id="fA">
   <h2 style="margin:0">Novo investimento</h2>
   <label for="aT">Tipo</label>
-  <select id="aT"><option value="fii">Fundo imobiliário (FII)</option><option value="acao">Ação / ETF</option><option value="poup">Poupança / renda fixa</option></select>
-  <label for="aN">Nome ou código</label><input id="aN" required maxlength="40" placeholder="Ex.: MXRF11">
-  <div class="qp"><label for="aQ">Quantidade de cotas</label><input id="aQ" type="number" step="any" min="0"></div>
-  <div class="qp"><label for="aC">Preço médio pago (R$)</label><input id="aC" type="number" step="any" min="0"></div>
+  <select id="aT"><option value="fii">Fundo imobiliário (FII)</option><option value="acao">Ação / ETF</option><option value="poup">Poupança / renda fixa</option><option value="usd">Dólar (moeda)</option></select>
+  <label for="aN">Nome ou código</label><input id="aN" maxlength="40" placeholder="Ex.: MXRF11">
+  <div class="qp"><label for="aQ" id="aQl">Quantidade de cotas</label><input id="aQ" type="number" step="any" min="0"></div>
+  <div class="qp"><label for="aC" id="aCl">Preço médio pago (R$)</label><input id="aC" type="number" step="any" min="0"></div>
+  <div class="qp"><label for="aD">Data da compra</label><input id="aD" type="date"></div>
   <div class="qp"><label for="aP">Cotação atual (R$)</label><input id="aP" type="number" step="any" min="0"></div>
   <div class="pp" hidden><label for="aV">Valor aplicado (R$)</label><input id="aV" type="number" step="any" min="0"></div>
   <div class="pp" hidden><label for="aR">Rendimento mensal (%)</label><input id="aR" type="number" step="any" placeholder="Ex.: 0.6"></div>
@@ -174,16 +201,53 @@ input,select{width:100%;background:#ffffff0d;border:1px solid var(--line);border
   <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
 </form></dialog>
 
+<dialog id="dM"><form id="fM">
+  <h2 style="margin:0">Metas</h2>
+  <p class="mut" style="font-size:.85rem">Quanto você quer ter em cada tipo (%) e quanto quer receber de renda por mês.</p>
+  <label for="m_fii">FIIs (%)</label><input id="m_fii" type="number" step="any" min="0">
+  <label for="m_acao">Ações (%)</label><input id="m_acao" type="number" step="any" min="0">
+  <label for="m_poup">Poupança / renda fixa (%)</label><input id="m_poup" type="number" step="any" min="0">
+  <label for="m_usd">Dólar (%)</label><input id="m_usd" type="number" step="any" min="0">
+  <label for="mI">Meta de renda mensal (R$)</label><input id="mI" type="number" step="any" min="0">
+  <label for="mA">Simular um aporte de (R$)</label><input id="mA" type="number" step="any" min="0">
+  <p id="mR" style="font-size:.95rem" aria-live="polite"></p>
+  <p class="mut" style="font-size:.8rem">A sugestão só distribui o aporte para se aproximar das metas que você definiu. Não é recomendação de compra.</p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
+</form></dialog>
+
+<dialog id="dD"><div id="dDc"></div><div class="acts"><button type="button" class="btn ghost" data-close>Fechar</button></div></dialog>
+
+<dialog id="dB"><form id="fB">
+  <h2 style="margin:0" id="bT">Comprei mais</h2>
+  <label for="bQ">Quantidade</label><input id="bQ" type="number" step="any" min="0" required>
+  <label for="bP">Preço por cota (R$)</label><input id="bP" type="number" step="any" min="0" required>
+  <label for="bD">Data</label><input id="bD" type="date" required>
+  <p class="mut" style="font-size:.85rem">O preço médio e o lucro realizado são recalculados automaticamente.</p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
+</form></dialog>
+
+<dialog id="dF"><form id="fF">
+  <h2 style="margin:0">Alertas do dólar</h2>
+  <label for="xLo">Avisar se o dólar cair até (R$)</label><input id="xLo" type="number" step="any" min="0">
+  <label for="xHi">Avisar se o dólar subir até (R$)</label><input id="xHi" type="number" step="any" min="0">
+  <label for="xVr">Avisar se variar mais de (% no dia)</label><input id="xVr" type="number" step="any" min="0">
+  <p class="mut" style="font-size:.85rem">Os avisos funcionam com o app aberto e destrancado: aparecem no topo da página e como notificação do navegador.</p>
+  <div class="acts"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn">Salvar</button></div>
+</form></dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
 <script>
 "use strict";
 const LS="cofre_v1",$=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const brl=n=>n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-const pct=n=>(n>=0?"+":"")+n.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%";
+const pc=n=>n.toLocaleString("pt-BR",{maximumFractionDigits:2})+"%";const pct=n=>(n>=0?"▲ ":"▼ ")+pc(Math.abs(n));
+const ago=a=>a.at?new Date(a.at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"manual";
 const today=()=>new Date().toISOString().slice(0,10);
 const cls=n=>n>=0?"up":"down";
-const TN={fii:"FII",acao:"Ação",poup:"Poupança"};
-let S={assets:[],snaps:[]},K=null,salt=null,timer=null,ctx=null,poll=null,seen=new Set();
+const TN={fii:"FII",acao:"Ação",poup:"Poupança",usd:"Dólar"};
+let S={assets:[],snaps:[]},K=null,salt=null,timer=null,ctx=null,poll=null,seen=new Set(),flt="all",FX=null,tt=null;
 
 /* ---------- criptografia ---------- */
 const b64=b=>{let s="";new Uint8Array(b).forEach(x=>s+=String.fromCharCode(x));return btoa(s)};
@@ -204,12 +268,13 @@ const val=a=>a.type==="poup"?a.cost*Math.pow(1+a.rate/100,months(a.start)):a.qty
 const inv=a=>a.type==="poup"?a.cost:a.qty*a.cost;
 const divs=a=>(a.divs||[]).reduce((t,d)=>t+d.v,0);
 function series(a){
+  if(a.type==="usd"&&FX&&FX.hist&&FX.hist.length>1)return FX.hist;
   if(a.type==="poup"){const n=months(a.start),o=[];for(let i=0;i<=n;i++)o.push(a.cost*Math.pow(1+a.rate/100,i));return o.length>1?o:[a.cost,a.cost]}
   const h=[...(a.hist||[])].sort((x,y)=>x.d.localeCompare(y.d)).map(x=>x.p);return h.length>1?h:[a.price,a.price];
 }
 function totals(){
-  let v=0,i=0,d=0;S.assets.forEach(a=>{v+=val(a);i+=inv(a);d+=divs(a)});
-  return {v,i,d,gain:v-i,pct:i?(v-i)/i*100:0,tot:v+d-i,totp:i?(v+d-i)/i*100:0};
+  let v=0,i=0,d=0,rl=0;S.assets.forEach(a=>{v+=val(a);i+=inv(a);d+=divs(a);rl+=a.realized||0});
+  return {v,i,d,gain:v-i,pct:i?(v-i)/i*100:0,rl,tot:v+d-i+rl,totp:i?(v+d-i+rl)/i*100:0};
 }
 function snap(){
   const t=totals(),d=today(),x=S.snaps.find(s=>s.d===d);
@@ -238,31 +303,36 @@ function spark(a){
 
 /* ---------- render ---------- */
 function render(){
+  document.body.classList.toggle("priv",!!S.priv);
+  renderFx();renderInc();renderIns();
   checkAlerts();
   const t=totals();
   $("#hero").innerHTML=`<small>Patrimônio atual</small><div class="big">${brl(t.v)}</div>
   <div class="row">
    <div><small>Investido</small><br><b>${brl(t.i)}</b></div>
-   <div><small>Valorização</small><br><b class="${cls(t.gain)}">${brl(t.gain)} (${pct(t.pct)})</b></div>
+   <div><small>Valorização (preço × custo)</small><br><b class="${cls(t.gain)}">${brl(t.gain)} (${pct(t.pct)})</b></div>
    <div><small>Rendimentos recebidos</small><br><b>${brl(t.d)}</b></div>
+   <div><small>Lucro realizado (vendas)</small><br><b class="${cls(t.rl)}">${brl(t.rl)}</b></div>
    <div><small>Resultado total</small><br><b class="${cls(t.tot)}">${brl(t.tot)} (${pct(t.totp)})</b></div></div>`;
   $("#evo").innerHTML=evoChart();
-  const al=["fii","acao","poup"].map(k=>({k,v:S.assets.filter(a=>a.type===k).reduce((s,a)=>s+val(a),0)})).filter(x=>x.v>0);
-  $("#alloc").innerHTML=al.length?al.map(x=>{const p=x.v/t.v*100;return `<div style="display:flex;justify-content:space-between"><b>${TN[x.k]}</b><span>${p.toFixed(1)}% · ${brl(x.v)}</span></div><div class="bar"><i style="width:${p}%"></i></div>`}).join(""):'<div class="empty">Sem dados ainda.</div>';
-  $("#list").innerHTML=S.assets.length?`<table><thead><tr><th>Ativo</th><th class="r">Valor atual</th><th class="r">Resultado</th><th class="r">Última variação</th><th>Histórico</th><th class="r">Ações</th></tr></thead><tbody>`+
-  S.assets.map(a=>{
+  const al=["fii","acao","poup","usd"].map(k=>({k,v:S.assets.filter(a=>a.type===k).reduce((s,a)=>s+val(a),0)})).filter(x=>x.v>0);
+  $("#alloc").innerHTML=al.length?al.map(x=>{const p=x.v/t.v*100;return `<div style="display:flex;justify-content:space-between"><b>${TN[x.k]}</b><span>${p.toFixed(1)}%${S.goals&&S.goals[x.k]?" (meta "+S.goals[x.k]+"%)":""} · ${brl(x.v)}</span></div><div class="bar"><i style="width:${p}%"></i></div>`}).join(""):'<div class="empty">Sem dados ainda.</div>';
+  const L=S.assets.filter(a=>flt==="all"||a.type===flt);$("#chips").hidden=!S.assets.length;
+  $("#list").innerHTML=L.length?`<table><thead><tr><th>Ativo</th><th class="r">Valor atual</th><th class="r">Resultado</th><th class="r">Variação</th><th>Histórico</th><th class="r">Ações</th></tr></thead><tbody>`+
+  L.map(a=>{
     const v=val(a),g=v-inv(a),gp=inv(a)?g/inv(a)*100:0,s=series(a),l=s[s.length-1],pr=s[s.length-2],ch=a.chg!=null?a.chg:(pr?(l-pr)/pr*100:0);
-    return `<tr><td><b>${esc(a.name)}</b> <span class="tag">${TN[a.type]}</span><br><small class="mut">${a.type==="poup"?esc(a.rate)+"% ao mês":esc(a.qty)+" cotas · pm "+brl(a.cost)}</small></td>
-    <td class="r" data-label="Valor atual">${brl(v)}${a.type==="poup"?"":"<br><small class='mut'>"+brl(a.price)+"</small>"}</td>
+    return `<tr><td><b>${esc(a.name)}</b> <span class="tag">${TN[a.type]}</span><br><small class="mut">${a.type==="poup"?esc(a.rate)+"% ao mês":esc(+a.qty.toFixed(4))+(a.type==="usd"?" US$ · preço médio ":" cotas · preço médio ")+brl(a.cost)}</small></td>
+    <td class="r" data-label="Valor atual">${brl(v)}${a.type==="poup"?"":"<br><small class='mut'>"+brl(a.price)+" · "+ago(a)+"</small>"}</td>
     <td class="r ${cls(g)}" data-label="Resultado">${brl(g)}<br><small>${pct(gp)}</small></td>
-    <td class="r ${cls(ch)}" data-label="Última variação">${pct(ch)}</td><td data-label="Histórico">${spark(a)}</td>
-    <td class="r" data-label="Ações">${a.type==="poup"?"":`<button class="btn sm" data-act="price" data-id="${esc(a.id)}">Cotação</button> `}${a.type==="fii"?`<button class="btn sm" data-act="div" data-id="${esc(a.id)}">Rendimento</button> `:""}${a.type==="poup"?"":`<button class="btn ghost sm" data-act="alert" data-id="${esc(a.id)}">${a.al&&(a.al.lo||a.al.hi||a.al.drop)?"Alerta ativo":"Alerta"}</button> `}<button class="btn ghost sm" data-act="del" data-id="${esc(a.id)}">Excluir</button></td></tr>`}).join("")+"</tbody></table>":
+    <td class="r ${cls(ch)}" data-label="Variação">${pct(ch)}</td><td data-label="Histórico">${spark(a)}</td>
+    <td class="r ac" data-label="Ações"><button class="btn sm" data-act="det" data-id="${esc(a.id)}">Detalhes</button> ${a.type==="poup"?"":`<button class="btn ghost sm" data-act="buy" data-id="${esc(a.id)}">+ Comprei mais</button>`}</td></tr>`}).join("")+"</tbody></table>":
   '<div class="empty">Nenhum investimento ainda. Toque em “Adicionar investimento”.</div>';
 }
 async function save(){snap();await persist();render()}
 
 /* ---------- ações ---------- */
-function toggleT(){const p=$("#aT").value==="poup";document.querySelectorAll(".qp").forEach(e=>e.hidden=p);document.querySelectorAll(".pp").forEach(e=>e.hidden=!p)}
+function toggleT(){const t=$("#aT").value,p=t==="poup";document.querySelectorAll(".qp").forEach(e=>e.hidden=p);document.querySelectorAll(".pp").forEach(e=>e.hidden=!p);
+  $("#aQl").textContent=t==="usd"?"Quantidade de dólares (US$)":"Quantidade de cotas";$("#aCl").textContent=t==="usd"?"Cotação paga (R$ por US$)":"Preço médio pago (R$)";$("#aN").placeholder=t==="usd"?"Opcional":"Ex.: MXRF11";if(!$("#aD").value)$("#aD").value=today()}
 $("#aT").onchange=toggleT;
 $("#menuToggle").addEventListener("click",()=>{const open=$("#headActions").classList.toggle("open");$("#menuToggle").setAttribute("aria-expanded",String(open))});
 document.addEventListener("click",async e=>{
@@ -280,21 +350,22 @@ document.addEventListener("click",async e=>{
   if(act==="alert"){ctx={a};const al=a.al||{};$("#lT").textContent="Alertas de "+a.name;$("#lLo").value=al.lo||"";$("#lHi").value=al.hi||"";$("#lDr").value=al.drop||"";$("#dL").showModal()}
   if(act==="export"){
     if(!confirm("O arquivo exportado NÃO é criptografado. Guarde em local seguro. Continuar?"))return;
-    const u=URL.createObjectURL(new Blob([JSON.stringify({assets:S.assets,snaps:S.snaps},null,1)],{type:"application/json"}));
-    const l=document.createElement("a");l.href=u;l.download="cofre-backup-"+today()+".json";l.click();URL.revokeObjectURL(u)}
+    const u=URL.createObjectURL(new Blob([JSON.stringify({assets:S.assets,snaps:S.snaps,goals:S.goals,incGoal:S.incGoal,fx:S.fx},null,1)],{type:"application/json"}));
+    const l=document.createElement("a");l.href=u;l.download="cofre-backup-"+today()+".json";l.click();URL.revokeObjectURL(u);S.bk=Date.now();persist()}
   if(act==="import")$("#file").click();
 });
 $("#fA").onsubmit=async e=>{
   e.preventDefault();const t=$("#aT").value,n=v=>parseFloat($(v).value)||0;
-  const a={id:crypto.randomUUID(),type:t,name:$("#aN").value.trim().toUpperCase(),hist:[],divs:[]};
+  const a={id:crypto.randomUUID(),type:t,name:($("#aN").value.trim()||(t==="usd"?"Dólar":"")).toUpperCase(),hist:[],divs:[]};
+  if(!a.name)return;
   if(t==="poup"){a.cost=n("#aV");a.qty=1;a.rate=n("#aR");a.start=$("#aS").value||today();if(a.cost<=0)return}
-  else{a.qty=n("#aQ");a.cost=n("#aC");a.price=n("#aP")||a.cost;if(a.qty<=0||a.cost<=0)return;a.hist=[{d:today(),p:a.price}]}
+  else{a.qty=n("#aQ");a.cost=n("#aC");a.price=n("#aP")||(t==="usd"&&FX?FX.bid:0)||a.cost;a.at=Date.now();if(a.qty<=0||a.cost<=0)return;a.hist=[{d:today(),p:a.price}];a.ops=[{d:$("#aD").value||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0}
   S.assets.push(a);$("#dA").close();await save();
 };
 $("#fP").onsubmit=async e=>{
   e.preventDefault();const v=parseFloat($("#pV").value),d=$("#pD").value;if(!(v>=0)||!d)return;
   const {a,k}=ctx;
-  if(k==="price"){a.price=v;a.chg=null;a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:v})}
+  if(k==="price"){a.price=v;a.chg=null;a.at=Date.now();a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:v})}
   else(a.divs=a.divs||[]).push({d,v:v*a.qty});
   $("#dP").close();await save();
 };
@@ -314,14 +385,20 @@ function checkAlerts(){
     if(al.hi>0&&a.price>=al.hi)o.push({k:a.id+"hi",d:0,t:`${a.name} está em ${brl(a.price)}, no alvo de alta de ${brl(al.hi)}.`});
     if(al.drop>0&&ch<=-al.drop)o.push({k:a.id+"dr",d:1,t:`${a.name} caiu ${Math.abs(ch).toLocaleString("pt-BR",{maximumFractionDigits:2})}% (alerta: ${al.drop}%).`});
   });
+  const f=S.fx;
+  if(f&&FX){
+    if(f.lo>0&&FX.bid<=f.lo)o.push({k:"fxlo",d:0,t:`Dólar em ${brl(FX.bid)}, no alvo de queda de ${brl(f.lo)}.`});
+    if(f.hi>0&&FX.bid>=f.hi)o.push({k:"fxhi",d:1,t:`Dólar em ${brl(FX.bid)}, no alvo de alta de ${brl(f.hi)}.`});
+    if(f.var>0&&Math.abs(FX.pct)>=f.var)o.push({k:"fxv",d:FX.pct<0?0:1,t:`Dólar ${FX.pct<0?"caiu":"subiu"} ${Math.abs(FX.pct)}% hoje (${brl(FX.bid)}).`});
+  }
   $("#alerts").innerHTML=o.map(x=>`<div class="alert ${x.d?"":"good"}" role="alert">${esc(x.t)}</div>`).join("");
   [...seen].forEach(k=>{if(!o.some(x=>x.k===k))seen.delete(k)});
   o.forEach(x=>{if(seen.has(x.k))return;seen.add(x.k);
     try{if("Notification" in window&&Notification.permission==="granted")new Notification("Cofre",{body:x.t})}catch{}});
 }
-function schedule(){clearInterval(poll);poll=null;if(K&&S.auto)poll=setInterval(()=>quotes(false),5*60*1000)}
+function schedule(){clearInterval(poll);poll=null;if(K&&S.auto)poll=setInterval(()=>{quotes(false);fetchFx()},5*60*1000)}
 async function quotes(manual){
-  const list=S.assets.filter(a=>a.type!=="poup"&&/^[A-Z0-9]{4,8}$/.test(a.name));
+  const list=S.assets.filter(a=>(a.type==="fii"||a.type==="acao")&&/^[A-Z0-9]{4,8}$/.test(a.name));
   if(!list.length){if(manual)$("#st").textContent="Cadastre um ativo com código da B3 (ex.: MXRF11) para buscar cotações.";return}
   $("#st").textContent="Buscando cotações…";let ok=0,msg="";
   for(const a of list){
@@ -332,21 +409,133 @@ async function quotes(manual){
       if(r.status===401||r.status===403){msg+=`${a.name}: precisa de token válido (Configurar). `;continue}
       const q=r.ok?(await r.json()).results?.[0]:null;
       if(!q||typeof q.regularMarketPrice!=="number"){msg+=`${a.name}: não encontrado. `;continue}
-      const d=today();a.price=q.regularMarketPrice;
+      const d=today();a.price=q.regularMarketPrice;a.at=Date.now();
       a.chg=typeof q.regularMarketChangePercent==="number"?q.regularMarketChangePercent:null;
       a.hist=(a.hist||[]).filter(x=>x.d!==d).concat({d,p:a.price});ok++;
     }catch{msg="Sem conexão com a brapi.dev. ";break}
     await new Promise(r=>setTimeout(r,400));
   }
   if(!K)return;
-  await save();
+  await save();if(manual)toast(ok+" cotações atualizadas");
   $("#st").textContent=`${ok} de ${list.length} cotações atualizadas às ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}. ${msg}`;
 }
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),2600)}
+async function fetchFx(){
+  try{
+    const q=(await (await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL")).json()).USDBRL;
+    FX={bid:+q.bid,pct:+q.pctChange,hi:+q.high,lo:+q.low,hist:[]};
+    if(!(FX.bid>0))throw 0;
+    try{FX.hist=(await (await fetch("https://economia.awesomeapi.com.br/json/daily/USD-BRL/30")).json()).map(x=>+x.bid).reverse()}catch{}
+  }catch{FX=FX||false}
+  if(FX&&K){const u=S.assets.filter(a=>a.type==="usd");if(u.length){u.forEach(a=>{a.price=FX.bid;a.chg=FX.pct;a.at=Date.now()});await save();return}}
+  renderFx();checkAlerts();
+}
+function renderFx(){
+  const el=$("#fx");if(!el)return;
+  if(FX===null){el.innerHTML='<div class="empty">Buscando…</div>';return}
+  if(!FX){el.innerHTML='<div class="empty">Não foi possível buscar o dólar agora.</div>';return}
+  const h=FX.hist||[];
+  el.innerHTML=`<div class="big" style="font-size:2rem">${brl(FX.bid)}</div><b class="${cls(FX.pct)}">${pct(FX.pct)}</b> <small class="mut">hoje · máx ${brl(FX.hi)} · mín ${brl(FX.lo)}</small>`+
+  (h.length>1?`<svg viewBox="0 0 300 70" style="margin-top:8px" role="img" aria-label="Dólar nos últimos 30 dias"><path d="${path(h,300,70,Math.min(...h),Math.max(...h),4)}" fill="none" stroke="${h[h.length-1]>=h[0]?"#86d6ad":"#ff8f86"}" stroke-width="2.5" stroke-linejoin="round"/></svg><small class="mut">Últimos 30 dias</small>`:"");
+}
+function renderInc(){
+  const el=$("#inc");if(!el)return;
+  const m={},now=new Date(),keys=[];
+  for(let i=11;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);keys.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"))}
+  S.assets.forEach(a=>(a.divs||[]).forEach(x=>{const k=String(x.d).slice(0,7);m[k]=(m[k]||0)+x.v}));
+  const vs=keys.map(k=>m[k]||0),mx=Math.max(...vs),sum=vs.reduce((a,b)=>a+b,0),p3=vs.slice(-3).reduce((a,b)=>a+b,0)/3;
+  if(!mx){el.innerHTML='<div class="empty">Registre os rendimentos dos FIIs (botão “Rendimento”) para ver o gráfico.</div>';return}
+  el.innerHTML=`<svg viewBox="0 0 300 90" role="img" aria-label="Rendimentos por mês">${vs.map((v,i)=>`<rect x="${i*25+3}" y="${(84-v/mx*80).toFixed(1)}" width="19" height="${Math.max(1,v/mx*80).toFixed(1)}" rx="3" fill="#F2E3C6"/>`).join("")}</svg><small class="mut">Média de ${brl(sum/12)} por mês · projeção de ${brl(p3)} por mês (média dos últimos 3 meses)</small>`+(S.incGoal>0?`<div class="bar" style="margin-top:10px"><i style="width:${Math.min(100,p3/S.incGoal*100)}%;background:var(--cream)"></i></div><small class="mut">${(p3/S.incGoal*100).toFixed(0)}% da meta de ${brl(S.incGoal)} por mês</small>`:"");
+}
+document.addEventListener("click",async e=>{
+  const c=e.target.closest("[data-f]");
+  if(c){flt=c.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));render();return}
+  const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act;
+  if(b.closest("#dD")&&act!=="delop")$("#dD").close();
+  const fa=S.assets.find(x=>x.id===b.dataset.id);
+  if(act==="priv"){S.priv=!S.priv;await persist();render();toast(S.priv?"Valores ocultos":"Valores visíveis")}
+  if(act==="fx"){const f=S.fx||{};$("#xLo").value=f.lo||"";$("#xHi").value=f.hi||"";$("#xVr").value=f.var||"";$("#dF").showModal()}
+  if(act==="quotes")fetchFx();
+  if((act==="buy"||act==="sell")&&fa){ctx={a:fa,t:act==="buy"?"c":"v"};$("#bT").textContent=(act==="buy"?"Comprei mais de ":"Vendi ")+fa.name;$("#fB").reset();$("#bD").value=today();$("#dB").showModal()}
+  if(act==="det"&&fa)openDetail(fa);
+  if(act==="delop"&&fa&&confirm("Apagar esta operação? O preço médio será recalculado.")){fa.ops.splice(+b.dataset.i,1);recalc(fa);await save();openDetail(fa)}
+  if(act==="goals"){["fii","acao","poup","usd"].forEach(k=>$("#m_"+k).value=(S.goals&&S.goals[k])||"");$("#mI").value=S.incGoal||"";$("#mA").value="";calcReb();$("#dM").showModal()}
+});
+$("#fB").onsubmit=async e=>{
+  e.preventDefault();const a=ctx.a,q=parseFloat($("#bQ").value),p=parseFloat($("#bP").value);if(!(q>0)||!(p>0))return;
+  if(ctx.t==="v"&&q>a.qty+1e-9){toast("Você só tem "+a.qty+" para vender.");return}
+  a.ops.push({d:$("#bD").value||today(),t:ctx.t,q,p});recalc(a);$("#dB").close();await save();
+  toast(ctx.t==="v"?"Venda registrada. Lucro realizado: "+brl(a.realized):"Compra registrada. Preço médio: "+brl(a.cost));
+};
+$("#fF").onsubmit=async e=>{
+  e.preventDefault();const n=v=>Math.max(0,parseFloat($(v).value)||0);
+  S.fx={lo:n("#xLo"),hi:n("#xHi"),var:n("#xVr")};
+  if("Notification" in window&&Notification.permission==="default")Notification.requestPermission();
+  $("#dF").close();seen.clear();await save();toast("Alerta do dólar salvo");
+};
+function migrate(a){if(a.type!=="poup"&&!a.ops){a.ops=[{d:(a.hist&&a.hist[0]&&a.hist[0].d)||today(),t:"c",q:a.qty,p:a.cost}];a.realized=0}}
+function recalc(a){
+  let q=0,c=0,r=0;
+  [...a.ops].sort((x,y)=>x.d.localeCompare(y.d)).forEach(o=>{
+    if(o.t==="c"){c=(q*c+o.q*o.p)/(q+o.q);q+=o.q}
+    else{const s=Math.min(o.q,q);r+=s*(o.p-c);q-=s}
+  });
+  a.qty=q;a.cost=c;a.realized=r;
+}
+function openDetail(a){
+  const v=val(a),g=v-inv(a),po=a.type==="poup",id=esc(a.id),ops=a.ops||[];
+  const row=(l,x)=>`<div><small class="mut">${l}</small><br><b>${x}</b></div>`;
+  const bt=(act,t,c)=>`<button class="btn ${c||""} sm" data-act="${act}" data-id="${id}">${t}</button>`;
+  $("#dDc").innerHTML=`<h2 style="margin:0">${esc(a.name)} <span class="tag">${TN[a.type]}</span></h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0">
+   ${row("Quantidade",esc(+a.qty.toFixed(4)))}${row(po?"Valor aplicado":"Preço médio",brl(a.cost))}
+   ${row("Valor atual",brl(v))}${row("Valorização",`<span class="${cls(g)}">${brl(g)}</span>`)}
+   ${po?"":row("Cotação",brl(a.price)+" · "+ago(a))+row("Lucro realizado",brl(a.realized||0))}
+   ${row("Rendimentos",brl(divs(a))+(inv(a)>0?" ("+pc(divs(a)/inv(a)*100)+" do custo)":""))}</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+   ${po?"":bt("buy","+ Comprei mais")+bt("sell","Vendi")+(a.type==="usd"?"":bt("price","Atualizar cotação","ghost"))}
+   ${a.type==="fii"?bt("div","Rendimento","ghost"):""}${po||a.type==="usd"?"":bt("alert","Alerta","ghost")}${bt("del","Excluir","ghost")}</div>
+  ${ops.length?`<h3 style="font-size:1rem;margin:18px 0 6px">Extrato de operações</h3>`+ops.map((o,i)=>({o,i})).reverse().map(({o,i})=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(o.d.split("-").reverse().join("/"))} · ${o.t==="c"?"Compra":"Venda"} ${esc(+o.q.toFixed(4))} × ${brl(o.p)}</span><button class="btn ghost sm" data-act="delop" data-id="${id}" data-i="${i}" aria-label="Apagar operação">✕</button></div>`).join(""):""}`;
+  if(!$("#dD").open)$("#dD").showModal();
+}
+function insights(){
+  const o=[],t=totals(),g=S.goals||{};
+  S.assets.forEach(a=>{
+    const v=val(a);
+    if(t.v>0&&S.assets.length>1&&v/t.v>0.3)o.push(`${a.name} concentra ${(v/t.v*100).toFixed(0)}% da carteira.`);
+    if(a.type!=="poup"&&a.qty>0&&a.cost>0&&a.price<a.cost*0.85)o.push(`${a.name} está ${((1-a.price/a.cost)*100).toFixed(0)}% abaixo do seu preço médio.`);
+    if(a.type==="fii"&&a.qty>0){const l=(a.divs||[]).map(x=>x.d).sort().pop();if(!l||(Date.now()-new Date(l))/864e5>40)o.push(`Nenhum rendimento de ${a.name} registrado há mais de 40 dias.`)}
+    if((a.type==="fii"||a.type==="acao")&&a.at&&Date.now()-a.at>36*36e5)o.push(`A cotação de ${a.name} está desatualizada (${ago(a)}).`);
+  });
+  ["fii","acao","poup","usd"].forEach(k=>{
+    if(!g[k]||t.v<=0)return;
+    const p=S.assets.filter(a=>a.type===k).reduce((s,a)=>s+val(a),0)/t.v*100;
+    if(Math.abs(p-g[k])>=5)o.push(`${TN[k]} está em ${p.toFixed(0)}% e a sua meta é ${g[k]}%.`);
+  });
+  if(S.assets.length&&(S.bk?Date.now()-S.bk>30*864e5:S.snaps.length>7))o.push("Faz mais de 30 dias que você não exporta um backup. Use Exportar no menu.");
+  return o;
+}
+function renderIns(){const o=insights();$("#insCard").hidden=!o.length;$("#ins").innerHTML=o.map(x=>`<div class="alert" style="background:#ffffff10;border-color:var(--line)">${esc(x)}</div>`).join("")}
+function calcReb(){
+  const ks=["fii","acao","poup","usd"],A=parseFloat($("#mA").value)||0,gs=ks.map(k=>+$("#m_"+k).value||0),sum=gs.reduce((a,b)=>a+b,0);
+  const cur=ks.map(k=>S.assets.filter(a=>a.type===k).reduce((s,a)=>s+val(a),0)),R=$("#mR");
+  if(sum>0&&Math.abs(sum-100)>0.01){R.textContent="As metas somam "+sum+"%. O ideal é 100%.";return}
+  if(!A||sum<=0){R.textContent="Informe as metas e um valor de aporte para ver como distribuí-lo.";return}
+  const T=totals().v+A,need=ks.map((k,i)=>Math.max(0,T*gs[i]/100-cur[i])),ns=need.reduce((a,b)=>a+b,0);
+  R.innerHTML=ns>0?"Para se aproximar das metas: "+ks.map((k,i)=>need[i]>0?`${TN[k]} <b>${brl(A*need[i]/ns)}</b>`:"").filter(Boolean).join(" · "):"Sua carteira já está nas metas.";
+}
+$("#fM").addEventListener("input",calcReb);
+$("#fM").onsubmit=async e=>{
+  e.preventDefault();const n=v=>Math.max(0,parseFloat($(v).value)||0);
+  S.goals={};["fii","acao","poup","usd"].forEach(k=>S.goals[k]=n("#m_"+k));S.incGoal=n("#mI");
+  $("#dM").close();await save();toast("Metas salvas");
+};
+$("#bm").onclick=()=>{scrollTo({top:0,behavior:"smooth"});$("#menuToggle").click()};
 $("#file").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   try{const j=JSON.parse(await f.text());if(!Array.isArray(j.assets))throw 0;
     if(!confirm("Isso substitui todos os dados atuais. Continuar?"))return;
-    S={token:S.token,auto:S.auto,lockMin:S.lockMin,assets:j.assets.map(a=>({...a,id:String(a.id||crypto.randomUUID()),name:String(a.name||"?")})),snaps:Array.isArray(j.snaps)?j.snaps:[]};await save()}
+    S={token:S.token,auto:S.auto,lockMin:S.lockMin,fx:j.fx||S.fx,priv:S.priv,goals:j.goals||S.goals,incGoal:j.incGoal||S.incGoal,bk:S.bk,assets:j.assets.map(a=>({...a,id:String(a.id||crypto.randomUUID()),name:String(a.name||"?")})),snaps:Array.isArray(j.snaps)?j.snaps:[]};S.assets.forEach(migrate);await save()}
   catch{alert("Arquivo inválido.")}
   e.target.value="";
 };
@@ -368,13 +557,13 @@ async function unlock(){
     if(has){
       const o=JSON.parse(has);salt=unb64(o.s);const k=await derive(pw,salt);
       const p=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(o.i)},k,unb64(o.d));
-      S=JSON.parse(new TextDecoder().decode(p));K=k;
+      S=JSON.parse(new TextDecoder().decode(p));K=k;S.assets.forEach(migrate);
     }else{
       if(pw.length<8){$("#err").textContent="Use pelo menos 8 caracteres.";return}
       if(pw!==$("#pw2").value){$("#err").textContent="As senhas não coincidem.";return}
       salt=crypto.getRandomValues(new Uint8Array(16));K=await derive(pw,salt);S={assets:[],snaps:[]};await persist();
     }
-    $("#pw").value="";$("#pw2").value="";$("#lock").hidden=true;$("#app").hidden=false;render();reset();schedule();if(S.auto)quotes(false);
+    $("#pw").value="";$("#pw2").value="";$("#lock").hidden=true;$("#app").hidden=false;render();reset();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch{};schedule();if(S.auto)quotes(false);fetchFx();
   }catch{$("#err").textContent="Senha incorreta.";K=null}
 }
 $("#go").onclick=unlock;
